@@ -424,6 +424,8 @@ CREATE TABLE customer_requirements (
   customer_phone TEXT,
   customer_photo_hash TEXT,
   customer_data TEXT,
+  customer_name TEXT,
+  document_code TEXT,
   CHECK (
     (
       requirement_type IN ('blocked', 'phone', 'photo', 'data')
@@ -446,8 +448,18 @@ CREATE TABLE customer_requirements (
   )
 );
 CREATE UNIQUE INDEX customer_requirements_idx ON customer_requirements (customer_id, requirement_type);
-CREATE INDEX customer_requirements_phone ON customer_requirements (customer_phone);
--- Note: Add ways to search for data like name, document ID
+CREATE INDEX customer_requirements_phone_idx ON customer_requirements (customer_phone);
+CREATE INDEX customer_requirements_name_idx ON customer_requirements (customer_name);
+CREATE INDEX customer_requirements_document_code_idx ON customer_requirements (document_code);
+CREATE TRIGGER customer_requirements_data_trg
+  UPDATE OF customer_data
+  ON customer_requirements
+  BEGIN
+    UPDATE customer_requirements
+    SET customer_name=json_extract(NEW.customer_data, '$.fullName'),
+      document_code=json_extract(NEW.customer_data, '$.documentId')
+    WHERE id=NEW.id;
+  END;
 
 CREATE TABLE customer_requirement_changes (
   id INTEGER PRIMARY KEY NOT NULL,
