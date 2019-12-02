@@ -241,6 +241,15 @@ CREATE TRIGGER tx_outs_trg
     INSERT INTO txs (timestamp, tx_out_id) VALUES (NEW.timestamp, NEW.id);
   END;
 
+CREATE TABLE tx_triggers (
+  id INTEGER PRIMARY KEY NOT NULL,
+  timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  tx_id INTEGER REFERENCES txs ON DELETE RESTRICT NOT NULL,
+  trigger_rec TEXT NOT NULL
+);
+-- trigger_rec is a JSON record that records trigger_type, threshold triggered, etc.
+-- We should define it in this comment.
+
 CREATE TABLE tx_trade_requests (
   id INTEGER PRIMARY KEY NOT NULL,
   timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
