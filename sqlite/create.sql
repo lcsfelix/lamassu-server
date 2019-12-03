@@ -27,7 +27,7 @@ CREATE TABLE tx_in_addresses (
   crypto_address TEXT NOT NULL,
   tx_in_id INTEGER UNIQUE REFERENCES tx_ins ON DELETE RESTRICT NOT NULL
 );
-CREATE INDEX tx_in_addressess_address_idx ON tx_in_addresses (crypto_address);
+CREATE INDEX tx_in_address_address_idx ON tx_in_addresses (crypto_address);
 
 CREATE TABLE tx_in_bills (
   id INTEGER PRIMARY KEY NOT NULL,
@@ -39,7 +39,7 @@ CREATE TABLE tx_in_bills (
   uuid TEXT UNIQUE NOT NULL,
   tx_in_id INTEGER REFERENCES tx_ins ON DELETE RESTRICT NOT NULL
 );
-CREATE INDEX tx_in_bills_idx ON tx_in_bills (tx_in_id);
+CREATE INDEX tx_in_bill_idx ON tx_in_bills (tx_in_id);
 
 CREATE TABLE tx_in_sends (
   id INTEGER PRIMARY KEY NOT NULL,
@@ -64,7 +64,7 @@ CREATE TABLE tx_in_confirmations (
   confirmations INTEGER NOT NULL,
   tx_in_id INTEGER REFERENCES tx_ins ON DELETE RESTRICT NOT NULL
 );
-CREATE INDEX tx_in_confirmations_idx ON tx_in_confirmations (tx_in_id);
+CREATE INDEX tx_in_confirmation_idx ON tx_in_confirmations (tx_in_id);
 
 CREATE TABLE tx_outs (
   id INTEGER PRIMARY KEY NOT NULL,
@@ -81,19 +81,19 @@ CREATE TABLE tx_outs (
   offered_rate NUMERIC NOT NULL,
   commission_percent NUMERIC NOT NULL,
   fudge_amount NUMERIC NOT NULL,
-  tx_out_confirmation_id INTEGER UNIQUE REFERENCES tx_outs_confirmations ON DELETE RESTRICT,
+  tx_out_confirmation_id INTEGER UNIQUE REFERENCES tx_out_confirmations ON DELETE RESTRICT,
   action TEXT CHECK (action IN ('accept', 'reject', 'normal')),
   action_user_id INTEGER REFERENCES users ON DELETE RESTRICT,
   tx_out_dispense_authorization_id INTEGER UNIQUE REFERENCES tx_out_dispense_authorizations ON DELETE RESTRICT,
   CHECK (NOT (action IS NOT NULL AND action_user_id IS NULL))
 );
 CREATE INDEX tx_out_timestamp_idx ON tx_outs (timestamp DESC);
-CREATE TRIGGER tx_out_dispense_authorization_changes_trg
+CREATE TRIGGER tx_out_dispense_authorization_change_trg
   UPDATE OF tx_out_confirmation_id, action, action_user_id, tx_out_dispense_authorization_id
   ON tx_outs
   BEGIN
-    INSERT INTO tx_out_dispense_authorization_changes (tx_out_confirmation_id, action, action_user_id, tx_out_dispense_authorization_id)
-    VALUES (OLD.tx_out_confirmation_id, OLD.action, OLD.action_user_id, OLD.tx_out_dispense_authorization_id);
+    INSERT INTO tx_out_dispense_authorization_changes (tx_out_confirmation_id, action, action_user_id, tx_out_dispense_authorization_id, tx_out_id)
+    VALUES (OLD.tx_out_confirmation_id, OLD.action, OLD.action_user_id, OLD.tx_out_dispense_authorization_id, OLD.id);
     UPDATE tx_outs SET update_timestamp=CURRENT_TIMESTAMP where id=NEW.id;
   END;
 
@@ -103,20 +103,20 @@ CREATE TABLE tx_out_addresses (
   crypto_address TEXT NOT NULL,
   tx_out_id INTEGER REFERENCES tx_outs ON DELETE RESTRICT NOT NULL
 );
-CREATE INDEX tx_out_addresses_idx ON tx_out_addresses (tx_out_id);
-CREATE INDEX tx_out_addressess_address_idx ON tx_out_addresses (crypto_address);
+CREATE INDEX tx_out_address_idx ON tx_out_addresses (tx_out_id);
+CREATE INDEX tx_out_address_address_idx ON tx_out_addresses (crypto_address);
 
 CREATE TABLE tx_out_dispense_authorization_changes (
   id INTEGER PRIMARY KEY NOT NULL,
   timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  tx_out_confirmation_id INTEGER UNIQUE REFERENCES tx_outs_confirmations ON DELETE RESTRICT,
+  tx_out_confirmation_id INTEGER UNIQUE REFERENCES tx_out_confirmations ON DELETE RESTRICT,
   action TEXT CHECK (action IN ('accept', 'reject', 'normal')) NOT NULL,
   action_user_id INTEGER REFERENCES users ON DELETE RESTRICT,
   tx_out_dispense_authorization_id INTEGER UNIQUE REFERENCES tx_out_dispense_authorizations ON DELETE RESTRICT,
   tx_out_id INTEGER REFERENCES tx_outs ON DELETE RESTRICT NOT NULL,
   CHECK (NOT (action IS NOT NULL AND action_user_id IS NULL))
 );
-CREATE INDEX tx_out_dispense_authorization_changes_idx ON tx_out_addresses (tx_out_id);
+CREATE INDEX tx_out_dispense_authorization_changes_idx ON tx_out_dispense_authorization_changes (tx_out_id);
 
 CREATE TABLE tx_out_confirmations (
   id INTEGER PRIMARY KEY NOT NULL,
@@ -130,7 +130,7 @@ CREATE TABLE tx_out_confirmations (
   confirmations INTEGER NOT NULL,
   tx_out_address_id INTEGER REFERENCES tx_out_addresses ON DELETE RESTRICT NOT NULL
 );
-CREATE INDEX tx_out_confirmations_idx ON tx_out_confirmations (tx_out_address_id);
+CREATE INDEX tx_out_confirmation_idx ON tx_out_confirmations (tx_out_address_id);
 
 CREATE TABLE tx_out_seens (
   id INTEGER PRIMARY KEY NOT NULL,
@@ -147,7 +147,7 @@ CREATE TABLE tx_out_smss (
   phone_number TEXT NOT NULL,
   tx_out_id INTEGER UNIQUE REFERENCES tx_outs ON DELETE RESTRICT NOT NULL
 );
-CREATE INDEX tx_out_smss_phone_number_idx ON tx_out_smss (phone_number);
+CREATE INDEX tx_out_sms_phone_number_idx ON tx_out_smss (phone_number);
 
 CREATE TABLE tx_out_dispense_authorizations (
   id INTEGER PRIMARY KEY NOT NULL,
@@ -180,7 +180,7 @@ CREATE TABLE tx_out_dispense_errors (
   description TEXT NOT NULL,
   tx_out_dispense_id INTEGER REFERENCES tx_out_dispenses ON DELETE RESTRICT NOT NULL
 );
-CREATE INDEX tx_out_dispense_errors_idx ON tx_out_dispense_errors (tx_out_dispense_id);
+CREATE INDEX tx_out_dispense_error_idx ON tx_out_dispense_errors (tx_out_dispense_id);
 
 CREATE TABLE tx_out_dispense_authorization_bills (
   id INTEGER PRIMARY KEY NOT NULL,
@@ -191,18 +191,18 @@ CREATE TABLE tx_out_dispense_authorization_bills (
   requested_count INTEGER NOT NULL,
   cashbox_position INTEGER NOT NULL
 );
-CREATE UNIQUE INDEX tx_out_dispense_authorization_bills_idx ON tx_out_dispense_authorization_bills (tx_out_dispense_authorization_id, cashbox_position);
+CREATE UNIQUE INDEX tx_out_dispense_authorization_bill_idx ON tx_out_dispense_authorization_bills (tx_out_dispense_authorization_id, cashbox_position);
 
 CREATE TABLE tx_out_dispense_bills (
   id INTEGER PRIMARY KEY NOT NULL,
   timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  tx_out_dispense_authorization_bill_id INTEGER UNIQUE REFERENCES tx_out_dispenses_authorization_bills ON DELETE RESTRICT NOT NULL,
+  tx_out_dispense_authorization_bill_id INTEGER UNIQUE REFERENCES tx_out_dispense_authorization_bills ON DELETE RESTRICT NOT NULL,
   tx_out_dispense_id INTEGER REFERENCES tx_out_dispenses ON DELETE RESTRICT NOT NULL,
   dispensed_count INTEGER NOT NULL,
   rejected_count INTEGER NOT NULL,
   cashbox_position INTEGER NOT NULL
 );
-CREATE UNIQUE INDEX tx_out_dispense_bills_idx ON tx_out_dispense_bills (tx_out_dispense_id, cashbox_position);
+CREATE UNIQUE INDEX tx_out_dispense_bill_idx ON tx_out_dispense_bills (tx_out_dispense_id, cashbox_position);
 
 CREATE TABLE txs (
   id INTEGER PRIMARY KEY NOT NULL,
@@ -215,24 +215,24 @@ CREATE TABLE txs (
   )
 );
 CREATE INDEX tx_timestamp_idx ON txs (timestamp DESC);
-CREATE TRIGGER tx_ins_trg
+CREATE TRIGGER tx_in_trg
   INSERT ON tx_ins
   BEGIN
     INSERT INTO txs (timestamp, tx_in_id) VALUES (NEW.timestamp, NEW.id);
   END;
-CREATE TRIGGER tx_outs_trg
+CREATE TRIGGER tx_out_trg
   INSERT ON tx_outs
   BEGIN
     INSERT INTO txs (timestamp, tx_out_id) VALUES (NEW.timestamp, NEW.id);
   END;
 
-CREATE TABLE tx_triggers (
+CREATE TABLE tx_compliance_triggers (
   id INTEGER PRIMARY KEY NOT NULL,
   timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   tx_id INTEGER REFERENCES txs ON DELETE RESTRICT NOT NULL,
   trigger_rec TEXT NOT NULL
 );
-CREATE INDEX tx_triggers_idx ON tx_triggers (tx_id);
+CREATE INDEX tx_compliance_trigger_idx ON tx_compliance_triggers (tx_id);
 -- trigger_rec is a JSON record that records trigger_type, threshold triggered, etc.
 -- We should define it in this comment.
 
@@ -241,7 +241,7 @@ CREATE TABLE tx_trade_requests (
   timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   tx_id INTEGER REFERENCES txs ON DELETE RESTRICT NOT NULL
 );
-CREATE INDEX tx_trade_requests_idx ON tx_trade_requests (tx_id);
+CREATE INDEX tx_trade_request_idx ON tx_trade_requests (tx_id);
 
 CREATE TABLE tx_trades (
   id INTEGER PRIMARY KEY NOT NULL,
@@ -272,7 +272,7 @@ CREATE TABLE cashbox_in_empties (
   tx_in_bill_id INTEGER REFERENCES fiat_codes ON DELETE RESTRICT NOT NULL
 );
 -- Not UNIQUE because cashbox could be serviced multiple times with no transaction activity.
-CREATE INDEX cashbox_in_empties_idx ON cashbox_in_empties (tx_in_bill_id);
+CREATE INDEX cashbox_in_empty_idx ON cashbox_in_empties (tx_in_bill_id);
 
 CREATE TABLE cashbox_out_empties (
   id INTEGER PRIMARY KEY NOT NULL,
@@ -285,7 +285,7 @@ CREATE TABLE cashbox_out_empties (
   denomination INTEGER NOT NULL,
   tx_out_dispense_bill_id INTEGER REFERENCES tx_out_dispense_bills ON DELETE RESTRICT NOT NULL
 );
-CREATE INDEX cashbox_out_empties_idx ON cashbox_out_empties (tx_out_dispense_bill_id);
+CREATE INDEX cashbox_out_empty_idx ON cashbox_out_empties (tx_out_dispense_bill_id);
 
 CREATE TABLE cashbox_out_fills (
   id INTEGER PRIMARY KEY NOT NULL,
@@ -295,7 +295,7 @@ CREATE TABLE cashbox_out_fills (
   fiat_code TEXT REFERENCES fiat_codes ON DELETE RESTRICT NOT NULL,
   fill_count INTEGER NOT NULL,
   denomination INTEGER NOT NULL,
-  cash_out_empty_id INTEGER UNIQUE REFERENCES cash_out_empties ON DELETE RESTRICT NOT NULL
+  cash_out_empty_id INTEGER UNIQUE REFERENCES cashbox_out_empties ON DELETE RESTRICT NOT NULL
 );
 
 CREATE TABLE one_time_tokens (
@@ -312,7 +312,7 @@ CREATE TABLE one_time_token_actions (
   ip_address TEXT NOT NULL
 );
 
-CREATE TABLE machines_certificates (
+CREATE TABLE machine_certificates (
   id INTEGER PRIMARY KEY NOT NULL,
   timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   certificate TEXT NOT NULL
@@ -344,7 +344,7 @@ CREATE TABLE machine_changes (
   user_id INTEGER REFERENCES users ON DELETE RESTRICT NOT NULL,
   machine_id INTEGER REFERENCES machines ON DELETE RESTRICT NOT NULL
 );
-CREATE TRIGGER machine_changes_trg
+CREATE TRIGGER machine_change_trg
   UPDATE OF certificate_id, is_online, user_id
   ON machines
   BEGIN
@@ -386,7 +386,7 @@ CREATE TRIGGER user_changes_trg
     UPDATE users SET update_timestamp=CURRENT_TIMESTAMP where id=NEW.id;
   END;
 
-CREATE TABLE terms_conditions (
+CREATE TABLE term_conditions (
   id INTEGER PRIMARY KEY NOT NULL,
   timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   update_timestamp TEXT NOT NULL,
@@ -395,21 +395,21 @@ CREATE TABLE terms_conditions (
   user_id REFERENCES users ON DELETE RESTRICT NOT NULL
 );
 
-CREATE TABLE term_conditions_changes (
+CREATE TABLE term_condition_changes (
   id INTEGER PRIMARY KEY NOT NULL,
   timestamp TEXT NOT NULL,
   terms TEXT NOT NULL,
   language_code TEXT NOT NULL,
   user_id REFERENCES users ON DELETE RESTRICT NOT NULL,
-  term_condition_id REFERENCES terms_conditions ON DELETE RESTRICT NOT NULL
+  term_condition_id REFERENCES term_conditions ON DELETE RESTRICT NOT NULL
 );
-CREATE TRIGGER terms_conditions_changes_trg
+CREATE TRIGGER term_condition_changes_trg
   UPDATE OF terms, language_code
-  ON terms_conditions
+  ON term_conditions
   BEGIN
-    INSERT INTO terms_conditions_changes (timestamp, terms, language_code, user_id, term_condition_id)
-    VALUES (OLD.timestamp, OLD.terms, OLD.language_code, OLD.user_id, OLD.term_condition_id);
-    UPDATE terms_conditions SET update_timestamp=CURRENT_TIMESTAMP where id=NEW.id;
+    INSERT INTO term_condition_changes (timestamp, terms, language_code, user_id, term_condition_id)
+    VALUES (OLD.timestamp, OLD.terms, OLD.language_code, OLD.user_id, OLD.id);
+    UPDATE term_conditions SET update_timestamp=CURRENT_TIMESTAMP where id=NEW.id;
   END;
 
 CREATE TABLE customers (
@@ -451,11 +451,11 @@ CREATE TABLE customer_requirements (
     )
   )
 );
-CREATE UNIQUE INDEX customer_requirements_idx ON customer_requirements (customer_id, requirement_type);
-CREATE INDEX customer_requirements_phone_idx ON customer_requirements (customer_phone);
-CREATE INDEX customer_requirements_name_idx ON customer_requirements (customer_name);
-CREATE INDEX customer_requirements_document_code_idx ON customer_requirements (document_code);
-CREATE TRIGGER customer_requirements_data_trg
+CREATE UNIQUE INDEX customer_requirement_idx ON customer_requirements (customer_id, requirement_type);
+CREATE INDEX customer_requirement_phone_idx ON customer_requirements (customer_phone);
+CREATE INDEX customer_requirement_name_idx ON customer_requirements (customer_name);
+CREATE INDEX customer_requirement_document_code_idx ON customer_requirements (document_code);
+CREATE TRIGGER customer_requirement_data_trg
   UPDATE OF customer_data
   ON customer_requirements
   BEGIN
@@ -469,7 +469,7 @@ CREATE TABLE customer_requirement_changes (
   id INTEGER PRIMARY KEY NOT NULL,
   timestamp TEXT NOT NULL,
   requirement_type TEXT NOT NULL,
-  is_accept INTEGER NOT NULL,
+  is_accepted INTEGER NOT NULL,
   user_id INTEGER REFERENCES users ON DELETE RESTRICT,
   customer_id INTEGER REFERENCES customers ON DELETE RESTRICT NOT NULL,
   customer_phone TEXT,
@@ -497,10 +497,17 @@ CREATE TABLE customer_requirement_changes (
   )
 );
 CREATE TRIGGER customer_requirement_changes_trg
-  UPDATE OF is_accept, user_id, customer_phone, customer_photo_hash, customer_data
+  UPDATE OF is_accepted, user_id, customer_phone, customer_photo_hash, customer_data
   ON customer_requirements
   BEGIN
-    INSERT INTO customer_requirement_changes (timestamp, is_accept, user_id, customer_phone, customer_photo_hash, customer_data, customer_id)
-    VALUES (OLD.timestamp, OLD.is_accept, OLD.user_id, OLD.customer_phone, OLD.customer_photo_hash, OLD.customer_data, OLD.customer_id);
+    INSERT INTO customer_requirement_changes (timestamp, requirement_type, is_accepted, user_id, customer_phone, customer_photo_hash, customer_data, customer_id)
+    VALUES (OLD.timestamp, OLD.requirement_type, OLD.is_accepted, OLD.user_id, OLD.customer_phone, OLD.customer_photo_hash, OLD.customer_data, OLD.customer_id);
     UPDATE customer_requirements SET update_timestamp=CURRENT_TIMESTAMP where id=NEW.id;
   END;
+
+-- compliance tables
+-- blacklist tables
+-- migration table
+-- separate database for logs
+-- config tables
+
