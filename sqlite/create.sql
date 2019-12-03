@@ -1,42 +1,23 @@
 PRAGMA foreign_keys = ON;
 
 CREATE TABLE fiat_codes (
-  id INTEGER PRIMARY KEY NOT NULL,
-  fiat_code TEXT NOT NULL
+  fiat_code TEXT PRIMARY KEY NOT NULL
 );
 
 CREATE TABLE crypto_codes (
-  id INTEGER PRIMARY KEY NOT NULL,
-  crypto_code TEXT NOT NULL
-);
-
-CREATE TABLE tx_in_exchange_rates (
-  id INTEGER PRIMARY KEY NOT NULL,
-  timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  crypto_code_id INTEGER REFERENCES crypto_codes ON DELETE RESTRICT NOT NULL,
-  original_ticker_rate NUMERIC NOT NULL,
-  original_ticker_rate_fiat_code TEXT NOT NULL,
-  ticker_rate NUMERIC NOT NULL,
-  offered_rate NUMERIC NOT NULL,
-  commission_percent NUMERIC NOT NULL
-);
-
-CREATE TABLE tx_out_exchange_rates (
-  id INTEGER PRIMARY KEY NOT NULL,
-  timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  crypto_code_id INTEGER REFERENCES crypto_codes ON DELETE RESTRICT NOT NULL,
-  original_ticker_rate NUMERIC NOT NULL,
-  original_ticker_rate_fiat_code TEXT NOT NULL,
-  ticker_rate NUMERIC NOT NULL,
-  offered_rate NUMERIC NOT NULL,
-  commission_percent NUMERIC NOT NULL
+  crypto_code TEXT PRIMARY KEY NOT NULL
 );
 
 CREATE TABLE tx_ins (
   id INTEGER PRIMARY KEY NOT NULL,
   timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   uuid TEXT UNIQUE NOT NULL,
-  tx_in_exchange_rate_id INTEGER UNIQUE REFERENCES tx_in_exchange_rate_id ON DELETE RESTRICT NOT NULL
+  crypto_code TEXT REFERENCES crypto_codes ON DELETE RESTRICT NOT NULL,
+  original_ticker_rate NUMERIC NOT NULL,
+  original_ticker_rate_fiat_code TEXT NOT NULL,
+  ticker_rate NUMERIC NOT NULL,
+  offered_rate NUMERIC NOT NULL,
+  commission_percent NUMERIC NOT NULL
 );
 CREATE INDEX tx_in_timestamp_idx ON tx_ins (timestamp DESC);
 
@@ -51,9 +32,9 @@ CREATE INDEX tx_in_addressess_address_idx ON tx_in_addresses (crypto_address);
 CREATE TABLE tx_in_bills (
   id INTEGER PRIMARY KEY NOT NULL,
   timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  fiat_code_id INTEGER REFERENCES fiat_codes ON DELETE RESTRICT NOT NULL,
+  fiat_code TEXT REFERENCES fiat_codes ON DELETE RESTRICT NOT NULL,
   denomination INTEGER NOT NULL,
-  crypto_code_id INTEGER REFERENCES crypto_codes ON DELETE RESTRICT NOT NULL,
+  crypto_code TEXT REFERENCES crypto_codes ON DELETE RESTRICT NOT NULL,
   crypto NUMERIC NOT NULL,
   uuid TEXT UNIQUE NOT NULL,
   tx_in_id INTEGER REFERENCES tx_ins ON DELETE RESTRICT NOT NULL
@@ -64,11 +45,11 @@ CREATE TABLE tx_in_sends (
   id INTEGER PRIMARY KEY NOT NULL,
   timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   fiat NUMERIC NOT NULL,
-  fiat_code_id INTEGER REFERENCES fiat_codes ON DELETE RESTRICT NOT NULL,
-  crypto_code_id INTEGER REFERENCES crypto_codes ON DELETE RESTRICT NOT NULL,
+  fiat_code TEXT REFERENCES fiat_codes ON DELETE RESTRICT NOT NULL,
+  crypto_code TEXT REFERENCES crypto_codes ON DELETE RESTRICT NOT NULL,
   crypto NUMERIC NOT NULL,
   miner_fee NUMERIC NOT NULL,
-  base_fiat_code_id INTEGER REFERENCES fiat_codes ON DELETE RESTRICT NOT NULL,
+  base_fiat_code TEXT REFERENCES fiat_codes ON DELETE RESTRICT NOT NULL,
   commission_fee NUMERIC NOT NULL,
   fixed_fee NUMERIC NOT NULL,
   tx_hash TEXT NOT NULL,
@@ -90,12 +71,16 @@ CREATE TABLE tx_outs (
   timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   update_timestamp TEXT,
   uuid TEXT UNIQUE NOT NULL,
-  fiat_code_id INTEGER REFERENCES fiat_codes ON DELETE RESTRICT NOT NULL,
+  fiat_code TEXT REFERENCES fiat_codes ON DELETE RESTRICT NOT NULL,
   fiat NUMERIC NOT NULL,
-  crypto_code_id INTEGER REFERENCES crypto_codes ON DELETE RESTRICT NOT NULL,
+  crypto_code TEXT REFERENCES crypto_codes ON DELETE RESTRICT NOT NULL,
   crypto NUMERIC NOT NULL,
+  original_ticker_rate NUMERIC NOT NULL,
+  original_ticker_rate_fiat_code TEXT NOT NULL,
+  ticker_rate NUMERIC NOT NULL,
+  offered_rate NUMERIC NOT NULL,
+  commission_percent NUMERIC NOT NULL,
   fudge_amount NUMERIC NOT NULL,
-  tx_out_exchange_rate_id INTEGER UNIQUE REFERENCES tx_out_exchange_rates ON DELETE RESTRICT NOT NULL,
   tx_out_confirmation_id INTEGER UNIQUE REFERENCES tx_outs_confirmations ON DELETE RESTRICT,
   action TEXT CHECK (action IN ('accept', 'reject', 'normal')),
   action_user_id INTEGER REFERENCES users ON DELETE RESTRICT,
@@ -138,7 +123,7 @@ CREATE TABLE tx_out_confirmations (
   timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   block_height INTEGER NOT NULL,
   block_hash TEXT NOT NULL,
-  crypto_code_id INTEGER REFERENCES crypto_codes ON DELETE RESTRICT NOT NULL,
+  crypto_code TEXT REFERENCES crypto_codes ON DELETE RESTRICT NOT NULL,
   crypto NUMERIC NOT NULL,
   miner_fee NUMERIC NOT NULL,
   tx_hash TEXT NOT NULL,
@@ -150,7 +135,7 @@ CREATE INDEX tx_out_confirmations_idx ON tx_out_confirmations (tx_out_address_id
 CREATE TABLE tx_out_seens (
   id INTEGER PRIMARY KEY NOT NULL,
   timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  crypto_code_id INTEGER REFERENCES crypto_codes ON DELETE RESTRICT NOT NULL,
+  crypto_code TEXT REFERENCES crypto_codes ON DELETE RESTRICT NOT NULL,
   crypto NUMERIC NOT NULL,
   miner_fee NUMERIC NOT NULL,
   tx_out_address_id INTEGER UNIQUE REFERENCES tx_out_addresses ON DELETE RESTRICT NOT NULL
@@ -167,7 +152,7 @@ CREATE INDEX tx_out_smss_phone_number_idx ON tx_out_smss (phone_number);
 CREATE TABLE tx_out_dispense_authorizations (
   id INTEGER PRIMARY KEY NOT NULL,
   timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  fiat_code_id INTEGER REFERENCES fiat_codes ON DELETE RESTRICT NOT NULL,
+  fiat_code TEXT REFERENCES fiat_codes ON DELETE RESTRICT NOT NULL,
   fiat NUMERIC NOT NULL,
   dispense_uuid TEXT UNIQUE NOT NULL
 );
@@ -182,7 +167,7 @@ CREATE TABLE tx_out_dispenses (
   id INTEGER PRIMARY KEY NOT NULL,
   timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   tx_out_dispense_authorization_id INTEGER UNIQUE REFERENCES fiat_codes ON DELETE RESTRICT NOT NULL,
-  fiat_code_id INTEGER REFERENCES fiat_codes ON DELETE RESTRICT NOT NULL,
+  fiat_code TEXT REFERENCES fiat_codes ON DELETE RESTRICT NOT NULL,
   fiat NUMERIC NOT NULL,
   dispenser_id INTEGER REFERENCES dispensers ON DELETE RESTRICT NOT NULL,
   cashbox_count INTEGER NOT NULL
@@ -201,7 +186,7 @@ CREATE TABLE tx_out_dispense_authorization_bills (
   id INTEGER PRIMARY KEY NOT NULL,
   timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   tx_out_dispense_authorization_id INTEGER REFERENCES tx_out_dispenses ON DELETE RESTRICT NOT NULL,
-  fiat_code_id INTEGER REFERENCES fiat_codes ON DELETE RESTRICT NOT NULL,
+  fiat_code TEXT REFERENCES fiat_codes ON DELETE RESTRICT NOT NULL,
   denomination INTEGER NOT NULL,
   requested_count INTEGER NOT NULL,
   cashbox_position INTEGER NOT NULL
@@ -247,6 +232,7 @@ CREATE TABLE tx_triggers (
   tx_id INTEGER REFERENCES txs ON DELETE RESTRICT NOT NULL,
   trigger_rec TEXT NOT NULL
 );
+CREATE INDEX tx_triggers_idx ON tx_triggers (tx_id);
 -- trigger_rec is a JSON record that records trigger_type, threshold triggered, etc.
 -- We should define it in this comment.
 
@@ -255,15 +241,16 @@ CREATE TABLE tx_trade_requests (
   timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   tx_id INTEGER REFERENCES txs ON DELETE RESTRICT NOT NULL
 );
+CREATE INDEX tx_trade_requests_idx ON tx_trade_requests (tx_id);
 
 CREATE TABLE tx_trades (
   id INTEGER PRIMARY KEY NOT NULL,
   timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   tx_trade_request_id INTEGER UNIQUE REFERENCES tx_ins ON DELETE RESTRICT NOT NULL,
-  crypto_code_id INTEGER REFERENCES crypto_codes ON DELETE RESTRICT NOT NULL,
+  crypto_code TEXT REFERENCES crypto_codes ON DELETE RESTRICT NOT NULL,
   crypto NUMERIC NOT NULL,
   crypto_fee NUMERIC NOT NULL,
-  fiat_code_id INTEGER REFERENCES fiat_codes ON DELETE RESTRICT NOT NULL,
+  fiat_code TEXT REFERENCES fiat_codes ON DELETE RESTRICT NOT NULL,
   fiat NUMERIC NOT NULL,
   fiat_fee NUMERIC NOT NULL
 );
@@ -292,7 +279,7 @@ CREATE TABLE cashbox_out_empties (
   timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   user_id INTEGER REFERENCES users ON DELETE RESTRICT NOT NULL,
   cashbox_position INTEGER NOT NULL,
-  fiat_code_id INTEGER REFERENCES fiat_codes ON DELETE RESTRICT NOT NULL,
+  fiat_code TEXT REFERENCES fiat_codes ON DELETE RESTRICT NOT NULL,
   empty_count INTEGER NOT NULL,
   expected_count INTEGER NOT NULL,
   denomination INTEGER NOT NULL,
@@ -305,7 +292,7 @@ CREATE TABLE cashbox_out_fills (
   timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   user_id INTEGER REFERENCES users ON DELETE RESTRICT NOT NULL,
   cashbox_position INTEGER NOT NULL,
-  fiat_code_id INTEGER REFERENCES fiat_codes ON DELETE RESTRICT NOT NULL,
+  fiat_code TEXT REFERENCES fiat_codes ON DELETE RESTRICT NOT NULL,
   fill_count INTEGER NOT NULL,
   denomination INTEGER NOT NULL,
   cash_out_empty_id INTEGER UNIQUE REFERENCES cash_out_empties ON DELETE RESTRICT NOT NULL
@@ -329,6 +316,14 @@ CREATE TABLE machines_certificates (
   id INTEGER PRIMARY KEY NOT NULL,
   timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   certificate TEXT NOT NULL
+);
+
+CREATE TABLE machine_models (
+  id INTEGER PRIMARY KEY NOT NULL,
+  timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  has_printer INTEGER NOT NULL,
+  has_dispenser INTEGER NOT NULL,
+  description TEXT NOT NULL
 );
 
 CREATE TABLE machines (
