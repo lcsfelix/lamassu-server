@@ -12,6 +12,7 @@ CREATE TABLE tx_ins (
   id INTEGER PRIMARY KEY NOT NULL,
   timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   uuid TEXT UNIQUE NOT NULL,
+  config_id INTEGER REFERENCES configs ON DELETE RESTRICT NOT NULL,
   crypto_code TEXT REFERENCES crypto_codes ON DELETE RESTRICT NOT NULL,
   original_ticker_rate NUMERIC NOT NULL,
   original_ticker_rate_fiat_code TEXT NOT NULL,
@@ -71,6 +72,7 @@ CREATE TABLE tx_outs (
   timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   update_timestamp TEXT,
   uuid TEXT UNIQUE NOT NULL,
+  config_id INTEGER REFERENCES configs ON DELETE RESTRICT NOT NULL,
   fiat_code TEXT REFERENCES fiat_codes ON DELETE RESTRICT NOT NULL,
   fiat NUMERIC NOT NULL,
   crypto_code TEXT REFERENCES crypto_codes ON DELETE RESTRICT NOT NULL,
@@ -280,8 +282,10 @@ CREATE TABLE cashbox_out_empties (
   user_id INTEGER REFERENCES users ON DELETE RESTRICT NOT NULL,
   cashbox_position INTEGER NOT NULL,
   fiat_code TEXT REFERENCES fiat_codes ON DELETE RESTRICT NOT NULL,
-  empty_count INTEGER NOT NULL,
-  expected_count INTEGER NOT NULL,
+  removed_bills_count INTEGER NOT NULL,
+  expected_removed_bills_count INTEGER NOT NULL,
+  reject_tray_bills_count INTEGER NOT NULL,
+  expected_reject_tray_bills_count INTEGER NOT NULL,
   denomination INTEGER NOT NULL,
   tx_out_dispense_bill_id INTEGER REFERENCES tx_out_dispense_bills ON DELETE RESTRICT NOT NULL
 );
@@ -295,7 +299,7 @@ CREATE TABLE cashbox_out_fills (
   fiat_code TEXT REFERENCES fiat_codes ON DELETE RESTRICT NOT NULL,
   fill_count INTEGER NOT NULL,
   denomination INTEGER NOT NULL,
-  cash_out_empty_id INTEGER UNIQUE REFERENCES cashbox_out_empties ON DELETE RESTRICT NOT NULL
+  cashbox_out_empty_id INTEGER UNIQUE REFERENCES cashbox_out_empties ON DELETE RESTRICT NOT NULL
 );
 
 CREATE TABLE one_time_tokens (
@@ -414,56 +418,51 @@ CREATE TRIGGER term_condition_changes_trg
 
 CREATE TABLE customers (
   id INTEGER PRIMARY KEY NOT NULL,
-  timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  customer_name TEXT,
+  customer_phone TEXT,
+  customer_document_code TEXT
 );
+
+CREATE TABLE customer_lookups (
+  customer_id INTEGER REFERENCES customers ON DELETE RESTRICT NOT NULL,
+  lookup_key TEXT NOT NULL,
+  value TEXT NOT NULL,
+  CHECK (lookup_key in ('customer_phone', 'customer_document_code', 'customer_name'))
+);
+CREATE INDEX customer_lookup_idx ON customer_lookups (value);
+
+CREATE TABLE requirement_types (
+  requirement_type TEXT PRIMARY KEY NOT NULL
+);
+INSERT INTO requirement_types VALUES
+  ('customer_phone'), ('customer_data'), ('customer_photo'), ('customer_document'), ('blocked'), ('vetted');
 
 CREATE TABLE customer_requirements (
   id INTEGER PRIMARY KEY NOT NULL,
   timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   update_timestamp TEXT,
-  requirement_type TEXT NOT NULL,
+  requirement_type TEXT REFERENCES requirement_types ON DELETE RESTRICT NOT NULL,
   is_accepted INTEGER NOT NULL,
+  is_active INTEGER NOT NULL DEFAULT 1,
+  expiration_days INTEGER,
   user_id INTEGER REFERENCES users ON DELETE RESTRICT,
   customer_id INTEGER REFERENCES customers ON DELETE RESTRICT NOT NULL,
-  customer_phone TEXT,
-  customer_photo_hash TEXT,
-  customer_data TEXT,
-  customer_name TEXT,
-  document_code TEXT,
-  CHECK (
-    (
-      requirement_type IN ('blocked', 'phone', 'photo', 'data')
-    ) AND (
-      requirement_type == 'blocked'
-      AND COALESCE(customer_phone, customer_photo_hash, customer_data) IS NULL
-    ) AND (
-      requirement_type == 'phone'
-      AND customer_phone IS NOT NULL
-      AND COALESCE(customer_photo_hash, customer_data) IS NULL
-    ) AND (
-      requirement_type == 'photo'
-      AND customer_photo_hash IS NOT NULL
-      AND COALESCE(customer_phone, customer_data) IS NULL
-    ) AND (
-      requirement_type == 'data'
-      AND customer_data IS NOT NULL
-      AND COALESCE(customer_phone, customer_photo_hash) IS NULL
-    )
-  )
+  customer_value TEXT
 );
-CREATE UNIQUE INDEX customer_requirement_idx ON customer_requirements (customer_id, requirement_type);
-CREATE INDEX customer_requirement_phone_idx ON customer_requirements (customer_phone);
-CREATE INDEX customer_requirement_name_idx ON customer_requirements (customer_name);
-CREATE INDEX customer_requirement_document_code_idx ON customer_requirements (document_code);
-CREATE TRIGGER customer_requirement_data_trg
-  UPDATE OF customer_data
-  ON customer_requirements
-  BEGIN
-    UPDATE customer_requirements
-    SET customer_name=json_extract(NEW.customer_data, '$.fullName'),
-      document_code=json_extract(NEW.customer_data, '$.documentId')
-    WHERE id=NEW.id;
-  END;
+CREATE UNIQUE INDEX customer_requirement_idx
+  ON customer_requirements (customer_id, requirement_type)
+  WHERE is_active;
+
+CREATE TABLE compliance_escalated_tiers (
+  id INTEGER PRIMARY KEY NOT NULL,
+  timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  requirement_type TEXT REFERENCES requirement_types ON DELETE RESTRICT NOT NULL,
+  expiration TEXT NOT NULL,
+  tx_compliance_trigger_id INTEGER REFERENCES tx_compliance_triggers ON DELETE RESTRICT NOT NULL,
+  customer_id INTEGER REFERENCES customers ON DELETE RESTRICT NOT NULL
+);
+CREATE INDEX compliance_escalated_tiers_idx ON compliance_escalated_tiers (customer_id, expiration);
 
 CREATE TABLE customer_requirement_changes (
   id INTEGER PRIMARY KEY NOT NULL,
@@ -472,42 +471,76 @@ CREATE TABLE customer_requirement_changes (
   is_accepted INTEGER NOT NULL,
   user_id INTEGER REFERENCES users ON DELETE RESTRICT,
   customer_id INTEGER REFERENCES customers ON DELETE RESTRICT NOT NULL,
-  customer_phone TEXT,
-  customer_photo_hash TEXT,
-  customer_data TEXT,
-  CHECK (
-    (
-      requirement_type IN ('blocked', 'phone', 'photo', 'data')
-    ) AND (
-      requirement_type == 'blocked'
-      AND COALESCE(customer_phone, customer_photo_hash, customer_data) IS NULL
-    ) AND (
-      requirement_type == 'phone'
-      AND customer_phone IS NOT NULL
-      AND COALESCE(customer_photo_hash, customer_data) IS NULL
-    ) AND (
-      requirement_type == 'photo'
-      AND customer_photo_hash IS NOT NULL
-      AND COALESCE(customer_phone, customer_data) IS NULL
-    ) AND (
-      requirement_type == 'data'
-      AND customer_data IS NOT NULL
-      AND COALESCE(customer_phone, customer_photo_hash) IS NULL
-    )
-  )
+  customer_value TEXT
 );
 CREATE TRIGGER customer_requirement_changes_trg
-  UPDATE OF is_accepted, user_id, customer_phone, customer_photo_hash, customer_data
+  UPDATE OF is_accepted, customer_value
   ON customer_requirements
   BEGIN
-    INSERT INTO customer_requirement_changes (timestamp, requirement_type, is_accepted, user_id, customer_phone, customer_photo_hash, customer_data, customer_id)
-    VALUES (OLD.timestamp, OLD.requirement_type, OLD.is_accepted, OLD.user_id, OLD.customer_phone, OLD.customer_photo_hash, OLD.customer_data, OLD.customer_id);
+    INSERT INTO customer_requirement_changes (timestamp, requirement_type, is_accepted, user_id, customer_value, customer_id)
+    VALUES (OLD.timestamp, OLD.requirement_type, OLD.is_accepted, OLD.user_id, OLD.customer_value, OLD.customer_id);
     UPDATE customer_requirements SET update_timestamp=CURRENT_TIMESTAMP where id=NEW.id;
   END;
 
--- compliance tables
--- blacklist tables
--- migration table
--- separate database for logs
--- config tables
+CREATE TABLE blacklist_addresses (
+  id INTEGER PRIMARY KEY NOT NULL,
+  timestamp TEXT NOT NULL,
+  crypto_code TEXT REFERENCES crypto_codes ON DELETE RESTRICT NOT NULL,
+  crypto_address TEXT NOT NULL,
+  user_id INTEGER REFERENCES users ON DELETE RESTRICT
+);
+CREATE UNIQUE INDEX blacklist_address_idx ON blacklist_addresses (crypto_address, crypto_code);
 
+CREATE TABLE configs (
+  id INTEGER PRIMARY KEY NOT NULL,
+  timestamp TEXT NOT NULL,
+  user_id INTEGER REFERENCES users ON DELETE RESTRICT,
+  config TEXT NOT NULL,
+  is_valid INTEGER NOT NULL
+);
+
+CREATE TABLE machine_logs (
+  id INTEGER PRIMARY KEY NOT NULL,
+  timestamp TEXT NOT NULL,
+  machine_timestamp TEXT,
+  machine_id INTEGER REFERENCES machines ON DELETE RESTRICT NOT NULL,
+  log_entry TEXT NOT NULL
+);
+CREATE INDEX machine_log_machine_timestamp_idx ON machine_logs (machine_timestamp DESC);
+
+CREATE TABLE server_logs (
+  id INTEGER PRIMARY KEY NOT NULL,
+  timestamp TEXT NOT NULL,
+  log_entry TEXT NOT NULL
+);
+CREATE INDEX server_log_timestamp_idx ON server_logs (timestamp DESC);
+
+CREATE TABLE migrations (
+  id INTEGER PRIMARY KEY NOT NULL,
+  timestamp TEXT NOT NULL,
+  last_migration_applied INTEGER NOT NULL
+);
+
+CREATE TABLE compliance_requirements (
+  id INTEGER PRIMARY KEY NOT NULL,
+  timestamp TEXT NOT NULL,
+  requirement_type TEXT REFERENCES requirement_types ON DELETE RESTRICT NOT NULL,
+  expiration_days INTEGER,
+  tier_escalation_days INTEGER NOT NULL DEFAULT 0,
+  is_manual INTEGER NOT NULL,
+  user_id INTEGER REFERENCES users ON DELETE RESTRICT
+);
+
+CREATE TABLE compliance_triggers (
+  id INTEGER PRIMARY KEY NOT NULL,
+  timestamp TEXT NOT NULL,
+  trigger_type TEXT NOT NULL,
+  requirement_type TEXT REFERENCES requirement_types ON DELETE RESTRICT NOT NULL,
+  fiat_code TEXT REFERENCES fiat_codes ON DELETE RESTRICT NOT NULL,
+  fiat_threshold NUMERIC,
+  day_threshold INTEGER,
+  direction TEXT NOT NULL,
+  is_active INTEGER NOT NULL DEFAULT 1,
+  user_id INTEGER REFERENCES users ON DELETE RESTRICT
+);
+CREATE INDEX compliance_triggers_idx ON compliance_triggers (is_active) WHERE is_active;
