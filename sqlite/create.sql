@@ -160,9 +160,7 @@ CREATE TABLE tx_out_dispense_authorizations (
 );
 
 CREATE TABLE dispensers (
-  id INTEGER PRIMARY KEY NOT NULL,
-  timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  model TEXT UNIQUE NOT NULL
+  dispenser_code TEXT PRIMARY KEY NOT NULL
 );
 
 CREATE TABLE tx_out_dispenses (
@@ -171,7 +169,6 @@ CREATE TABLE tx_out_dispenses (
   tx_out_dispense_authorization_id INTEGER UNIQUE REFERENCES fiat_codes ON DELETE RESTRICT NOT NULL,
   fiat_code TEXT REFERENCES fiat_codes ON DELETE RESTRICT NOT NULL,
   fiat NUMERIC NOT NULL,
-  dispenser_id INTEGER REFERENCES dispensers ON DELETE RESTRICT NOT NULL,
   cashbox_count INTEGER NOT NULL
 );
 
@@ -232,11 +229,9 @@ CREATE TABLE tx_compliance_triggers (
   id INTEGER PRIMARY KEY NOT NULL,
   timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   tx_id INTEGER REFERENCES txs ON DELETE RESTRICT NOT NULL,
-  trigger_rec TEXT NOT NULL
+  compliance_trigger_id INTEGER REFERENCES compliance_triggers ON DELETE RESTRICT
 );
 CREATE INDEX tx_compliance_trigger_idx ON tx_compliance_triggers (tx_id);
--- trigger_rec is a JSON record that records trigger_type, threshold triggered, etc.
--- We should define it in this comment.
 
 CREATE TABLE tx_trade_requests (
   id INTEGER PRIMARY KEY NOT NULL,
@@ -337,6 +332,7 @@ CREATE TABLE machines (
   model_id INTEGER REFERENCES machine_models ON DELETE RESTRICT NOT NULL,
   certificate_id INTEGER UNIQUE REFERENCES machine_certificates ON DELETE RESTRICT,
   is_online INTEGER NOT NULL DEFAULT 1,
+  dispenser_code TEXT REFERENCES dispensers ON DELETE RESTRICT NOT NULL,
   user_id INTEGER REFERENCES users ON DELETE RESTRICT NOT NULL
 );
 
@@ -448,21 +444,13 @@ CREATE TABLE customer_requirements (
   expiration_days INTEGER,
   user_id INTEGER REFERENCES users ON DELETE RESTRICT,
   customer_id INTEGER REFERENCES customers ON DELETE RESTRICT NOT NULL,
-  customer_value TEXT
+  customer_value TEXT,
+  tx_id INTEGER REFERENCES txs ON DELETE RESTRICT NOT NULL,
 );
 CREATE UNIQUE INDEX customer_requirement_idx
   ON customer_requirements (customer_id, requirement_type)
   WHERE is_active;
-
-CREATE TABLE compliance_escalated_tiers (
-  id INTEGER PRIMARY KEY NOT NULL,
-  timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  requirement_type TEXT REFERENCES requirement_types ON DELETE RESTRICT NOT NULL,
-  expiration TEXT NOT NULL,
-  tx_compliance_trigger_id INTEGER REFERENCES tx_compliance_triggers ON DELETE RESTRICT NOT NULL,
-  customer_id INTEGER REFERENCES customers ON DELETE RESTRICT NOT NULL
-);
-CREATE INDEX compliance_escalated_tiers_idx ON compliance_escalated_tiers (customer_id, expiration);
+CREATE INDEX customer_requirement_timestamp_idx ON compliance_escalated_tiers (customer_id, timestamp);
 
 CREATE TABLE customer_requirement_changes (
   id INTEGER PRIMARY KEY NOT NULL,
@@ -544,3 +532,6 @@ CREATE TABLE compliance_triggers (
   user_id INTEGER REFERENCES users ON DELETE RESTRICT
 );
 CREATE INDEX compliance_triggers_idx ON compliance_triggers (is_active) WHERE is_active;
+
+-- update customer_requirement_changes
+-- update tx_compliance_triggers
