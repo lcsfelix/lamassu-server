@@ -445,12 +445,12 @@ CREATE TABLE customer_requirements (
   user_id INTEGER REFERENCES users ON DELETE RESTRICT,
   customer_id INTEGER REFERENCES customers ON DELETE RESTRICT NOT NULL,
   customer_value TEXT,
-  tx_id INTEGER REFERENCES txs ON DELETE RESTRICT NOT NULL,
+  tx_id INTEGER REFERENCES txs ON DELETE RESTRICT NOT NULL
 );
 CREATE UNIQUE INDEX customer_requirement_idx
   ON customer_requirements (customer_id, requirement_type)
   WHERE is_active;
-CREATE INDEX customer_requirement_timestamp_idx ON compliance_escalated_tiers (customer_id, timestamp);
+CREATE INDEX customer_requirement_timestamp_idx ON customer_requirements (customer_id, timestamp);
 
 CREATE TABLE customer_requirement_changes (
   id INTEGER PRIMARY KEY NOT NULL,
