@@ -441,7 +441,7 @@ CREATE TABLE customer_requirements (
   requirement_type TEXT REFERENCES requirement_types ON DELETE RESTRICT NOT NULL,
   is_accepted INTEGER NOT NULL,
   is_active INTEGER NOT NULL DEFAULT 1,
-  expiration_days INTEGER,
+  expires TEXT,
   user_id INTEGER REFERENCES users ON DELETE RESTRICT,
   customer_id INTEGER REFERENCES customers ON DELETE RESTRICT NOT NULL,
   customer_value TEXT,
@@ -455,18 +455,26 @@ CREATE INDEX customer_requirement_timestamp_idx ON compliance_escalated_tiers (c
 CREATE TABLE customer_requirement_changes (
   id INTEGER PRIMARY KEY NOT NULL,
   timestamp TEXT NOT NULL,
-  requirement_type TEXT NOT NULL,
+  requirement_type TEXT REFERENCES requirement_types ON DELETE RESTRICT NOT NULL,
   is_accepted INTEGER NOT NULL,
+  is_active INTEGER NOT NULL DEFAULT 1,
+  expires TEXT,
   user_id INTEGER REFERENCES users ON DELETE RESTRICT,
   customer_id INTEGER REFERENCES customers ON DELETE RESTRICT NOT NULL,
-  customer_value TEXT
+  customer_value TEXT,
+  tx_id INTEGER REFERENCES txs ON DELETE RESTRICT NOT NULL,
+  customer_requirement_id INTEGER REFERENCES customer_requirements ON DELETE RESTRICT NOT NULL
 );
 CREATE TRIGGER customer_requirement_changes_trg
-  UPDATE OF is_accepted, customer_value
+  UPDATE OF is_accepted, is_active, expires, customer_value
   ON customer_requirements
   BEGIN
-    INSERT INTO customer_requirement_changes (timestamp, requirement_type, is_accepted, user_id, customer_value, customer_id)
-    VALUES (OLD.timestamp, OLD.requirement_type, OLD.is_accepted, OLD.user_id, OLD.customer_value, OLD.customer_id);
+    INSERT INTO customer_requirement_changes
+    (timestamp, requirement_type, is_accepted, is_active, expires, user_id,
+      customer_value, customer_id, tx_id, customer_requirement_id)
+    VALUES
+    (OLD.timestamp, OLD.requirement_type, OLD.is_accepted, OLD.is_active, OLD.expires, OLD.user_id,
+      OLD.customer_value, OLD.customer_id, OLD.tx_id, OLD.id);
     UPDATE customer_requirements SET update_timestamp=CURRENT_TIMESTAMP where id=NEW.id;
   END;
 
@@ -532,6 +540,3 @@ CREATE TABLE compliance_triggers (
   user_id INTEGER REFERENCES users ON DELETE RESTRICT
 );
 CREATE INDEX compliance_triggers_idx ON compliance_triggers (is_active) WHERE is_active;
-
--- update customer_requirement_changes
--- update tx_compliance_triggers
