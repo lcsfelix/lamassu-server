@@ -18,9 +18,11 @@ CREATE TABLE tx_ins (
   original_ticker_rate_fiat_code TEXT NOT NULL,
   ticker_rate NUMERIC NOT NULL,
   offered_rate NUMERIC NOT NULL,
-  commission_percent NUMERIC NOT NULL
+  commission_percent NUMERIC NOT NULL,
+  is_suspicious INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX tx_in_timestamp_idx ON tx_ins (timestamp DESC);
+CREATE INDEX tx_in_suspicious_idx ON tx_ins (is_suspicious) WHERE is_suspicious;
 
 CREATE TABLE tx_in_addresses (
   id INTEGER PRIMARY KEY NOT NULL,
@@ -83,6 +85,7 @@ CREATE TABLE tx_outs (
   offered_rate NUMERIC NOT NULL,
   commission_percent NUMERIC NOT NULL,
   fudge_amount NUMERIC NOT NULL,
+  is_suspicious INTEGER NOT NULL DEFAULT 0,
   tx_out_confirmation_id INTEGER UNIQUE REFERENCES tx_out_confirmations ON DELETE RESTRICT,
   action TEXT CHECK (action IN ('accept', 'reject', 'normal')),
   action_user_id INTEGER REFERENCES users ON DELETE RESTRICT,
@@ -98,6 +101,7 @@ CREATE TRIGGER tx_out_dispense_authorization_change_trg
     VALUES (OLD.tx_out_confirmation_id, OLD.action, OLD.action_user_id, OLD.tx_out_dispense_authorization_id, OLD.id);
     UPDATE tx_outs SET update_timestamp=CURRENT_TIMESTAMP where id=NEW.id;
   END;
+CREATE INDEX tx_out_suspicious_idx ON tx_outs (is_suspicious) WHERE is_suspicious;
 
 CREATE TABLE tx_out_addresses (
   id INTEGER PRIMARY KEY NOT NULL,
