@@ -39,3 +39,5 @@ terraform.*
 .terraform
 
 new-lamassu-admin/
+
+sqlite/lamassu.db

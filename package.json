@@ -10,6 +10,7 @@
     "axios": "^0.16.1",
     "base-x": "^3.0.2",
     "bchaddrjs": "^0.3.0",
+    "better-sqlite3": "^5.4.3",
     "bignumber.js": "^4.1.0",
     "bip39": "^2.3.1",
     "bitcoind-rpc": "^0.7.0",
@@ -60,7 +61,8 @@
     "web3": "^0.20.6",
     "winston": "^2.4.2",
     "ws": "^3.1.0",
-    "xml-stream": "^0.4.5"
+    "xml-stream": "^0.4.5",
+    "yargs": "^15.0.2"
   },
   "repository": {
     "type": "git",

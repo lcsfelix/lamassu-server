@@ -15,7 +15,7 @@ CREATE TABLE tx_ins (
   config_id INTEGER REFERENCES configs ON DELETE RESTRICT NOT NULL,
   crypto_code TEXT REFERENCES crypto_codes ON DELETE RESTRICT NOT NULL,
   original_ticker_rate NUMERIC NOT NULL,
-  original_ticker_rate_fiat_code TEXT NOT NULL,
+  original_ticker_rate_fiat_code TEXT NOT NULL, -- REFERENCE fiat_codes?
   ticker_rate NUMERIC NOT NULL,
   offered_rate NUMERIC NOT NULL,
   commission_percent NUMERIC NOT NULL,
@@ -28,7 +28,7 @@ CREATE TABLE tx_in_addresses (
   id INTEGER PRIMARY KEY NOT NULL,
   timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   crypto_address TEXT NOT NULL,
-  tx_in_id INTEGER UNIQUE REFERENCES tx_ins ON DELETE RESTRICT NOT NULL
+  tx_in_id INTEGER UNIQUE REFERENCES tx_ins ON DELETE RESTRICT NOT NULL -- It's not UNIQUE in tx_out_confirmations
 );
 CREATE INDEX tx_in_address_address_idx ON tx_in_addresses (crypto_address);
 
@@ -80,13 +80,12 @@ CREATE TABLE tx_outs (
   crypto_code TEXT REFERENCES crypto_codes ON DELETE RESTRICT NOT NULL,
   crypto NUMERIC NOT NULL,
   original_ticker_rate NUMERIC NOT NULL,
-  original_ticker_rate_fiat_code TEXT NOT NULL,
+  original_ticker_rate_fiat_code TEXT NOT NULL, -- REFERENCE fiat_codes?
   ticker_rate NUMERIC NOT NULL,
   offered_rate NUMERIC NOT NULL,
   commission_percent NUMERIC NOT NULL,
   fudge_amount NUMERIC NOT NULL,
   is_suspicious INTEGER NOT NULL DEFAULT 0,
-  tx_out_confirmation_id INTEGER UNIQUE REFERENCES tx_out_confirmations ON DELETE RESTRICT,
   action TEXT CHECK (action IN ('accept', 'reject', 'normal')),
   action_user_id INTEGER REFERENCES users ON DELETE RESTRICT,
   tx_out_dispense_authorization_id INTEGER UNIQUE REFERENCES tx_out_dispense_authorizations ON DELETE RESTRICT,
@@ -134,7 +133,7 @@ CREATE TABLE tx_out_confirmations (
   miner_fee NUMERIC NOT NULL,
   tx_hash TEXT NOT NULL,
   confirmations INTEGER NOT NULL,
-  tx_out_address_id INTEGER REFERENCES tx_out_addresses ON DELETE RESTRICT NOT NULL
+  tx_out_address_id INTEGER REFERENCES tx_out_addresses ON DELETE RESTRICT NOT NULL -- UNIQUE?
 );
 CREATE INDEX tx_out_confirmation_idx ON tx_out_confirmations (tx_out_address_id);
 
@@ -170,7 +169,7 @@ CREATE TABLE dispensers (
 CREATE TABLE tx_out_dispenses (
   id INTEGER PRIMARY KEY NOT NULL,
   timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  tx_out_dispense_authorization_id INTEGER UNIQUE REFERENCES fiat_codes ON DELETE RESTRICT NOT NULL,
+  tx_out_dispense_authorization_id INTEGER UNIQUE REFERENCES tx_out_dispense_authorizations ON DELETE RESTRICT NOT NULL,
   fiat_code TEXT REFERENCES fiat_codes ON DELETE RESTRICT NOT NULL,
   fiat NUMERIC NOT NULL,
   cashbox_count INTEGER NOT NULL
@@ -214,7 +213,7 @@ CREATE TABLE txs (
   tx_out_id INTEGER UNIQUE REFERENCES tx_outs ON DELETE RESTRICT,
   CHECK (
     (tx_in_id IS NULL AND tx_out_id IS NOT NULL) OR
-    (tx_in_id IS NOT NULL AND tx_out_id NOT NULL)
+    (tx_in_id IS NOT NULL AND tx_out_id IS NULL)
   )
 );
 CREATE INDEX tx_timestamp_idx ON txs (timestamp DESC);
@@ -270,7 +269,7 @@ CREATE TABLE cashbox_in_empties (
   timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   user_id INTEGER REFERENCES users ON DELETE RESTRICT NOT NULL,
   cashbox_position INTEGER NOT NULL,
-  tx_in_bill_id INTEGER REFERENCES fiat_codes ON DELETE RESTRICT NOT NULL
+  tx_in_bill_id INTEGER REFERENCES tx_in_bills ON DELETE RESTRICT NOT NULL
 );
 -- Not UNIQUE because cashbox could be serviced multiple times with no transaction activity.
 CREATE INDEX cashbox_in_empty_idx ON cashbox_in_empties (tx_in_bill_id);
@@ -311,7 +310,7 @@ CREATE TABLE one_time_tokens (
 CREATE TABLE one_time_token_actions (
   id INTEGER PRIMARY KEY NOT NULL,
   timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  one_time_token_id INTEGER UNIQUE REFERENCES fiat_codes ON DELETE RESTRICT NOT NULL,
+  one_time_token_id INTEGER UNIQUE REFERENCES one_time_tokens ON DELETE RESTRICT NOT NULL,
   ip_address TEXT NOT NULL
 );
 
@@ -342,7 +341,7 @@ CREATE TABLE machines (
 
 CREATE TABLE machine_changes (
   id INTEGER PRIMARY KEY NOT NULL,
-  timestamp TEXT NOT NULL,
+  timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   certificate_id INTEGER UNIQUE REFERENCES machine_certificates ON DELETE RESTRICT,
   is_online INTEGER NOT NULL,
   user_id INTEGER REFERENCES users ON DELETE RESTRICT NOT NULL,
@@ -375,7 +374,7 @@ CREATE TABLE users (
 
 CREATE TABLE user_changes (
   id INTEGER PRIMARY KEY NOT NULL,
-  timestamp TEXT NOT NULL,
+  timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   token TEXT NOT NULL,
   role_id INTEGER REFERENCES roles ON DELETE RESTRICT NOT NULL,
   grantor_user_id REFERENCES users ON DELETE RESTRICT,
@@ -390,30 +389,30 @@ CREATE TRIGGER user_changes_trg
     UPDATE users SET update_timestamp=CURRENT_TIMESTAMP where id=NEW.id;
   END;
 
-CREATE TABLE term_conditions (
+CREATE TABLE terms_conditions (
   id INTEGER PRIMARY KEY NOT NULL,
   timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  update_timestamp TEXT NOT NULL,
+  update_timestamp TEXT,
   terms TEXT NOT NULL,
   language_code TEXT NOT NULL,
   user_id REFERENCES users ON DELETE RESTRICT NOT NULL
 );
 
-CREATE TABLE term_condition_changes (
+CREATE TABLE terms_conditions_changes (
   id INTEGER PRIMARY KEY NOT NULL,
-  timestamp TEXT NOT NULL,
+  timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   terms TEXT NOT NULL,
   language_code TEXT NOT NULL,
   user_id REFERENCES users ON DELETE RESTRICT NOT NULL,
-  term_condition_id REFERENCES term_conditions ON DELETE RESTRICT NOT NULL
+  terms_conditions_id REFERENCES terms_conditions ON DELETE RESTRICT NOT NULL
 );
-CREATE TRIGGER term_condition_changes_trg
+CREATE TRIGGER terms_conditions_changes_trg
   UPDATE OF terms, language_code
-  ON term_conditions
+  ON terms_conditions
   BEGIN
-    INSERT INTO term_condition_changes (timestamp, terms, language_code, user_id, term_condition_id)
+    INSERT INTO terms_conditions_changes (timestamp, terms, language_code, user_id, terms_conditions_id)
     VALUES (OLD.timestamp, OLD.terms, OLD.language_code, OLD.user_id, OLD.id);
-    UPDATE term_conditions SET update_timestamp=CURRENT_TIMESTAMP where id=NEW.id;
+    UPDATE terms_conditions SET update_timestamp=CURRENT_TIMESTAMP where id=NEW.id;
   END;
 
 CREATE TABLE customers (
@@ -458,7 +457,7 @@ CREATE INDEX customer_requirement_timestamp_idx ON customer_requirements (custom
 
 CREATE TABLE customer_requirement_changes (
   id INTEGER PRIMARY KEY NOT NULL,
-  timestamp TEXT NOT NULL,
+  timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   requirement_type TEXT REFERENCES requirement_types ON DELETE RESTRICT NOT NULL,
   is_accepted INTEGER NOT NULL,
   is_active INTEGER NOT NULL DEFAULT 1,
@@ -484,7 +483,7 @@ CREATE TRIGGER customer_requirement_changes_trg
 
 CREATE TABLE blacklist_addresses (
   id INTEGER PRIMARY KEY NOT NULL,
-  timestamp TEXT NOT NULL,
+  timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   crypto_code TEXT REFERENCES crypto_codes ON DELETE RESTRICT NOT NULL,
   crypto_address TEXT NOT NULL,
   user_id INTEGER REFERENCES users ON DELETE RESTRICT
@@ -493,7 +492,7 @@ CREATE UNIQUE INDEX blacklist_address_idx ON blacklist_addresses (crypto_address
 
 CREATE TABLE configs (
   id INTEGER PRIMARY KEY NOT NULL,
-  timestamp TEXT NOT NULL,
+  timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   user_id INTEGER REFERENCES users ON DELETE RESTRICT,
   config TEXT NOT NULL,
   is_valid INTEGER NOT NULL
@@ -501,7 +500,7 @@ CREATE TABLE configs (
 
 CREATE TABLE machine_logs (
   id INTEGER PRIMARY KEY NOT NULL,
-  timestamp TEXT NOT NULL,
+  timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   machine_timestamp TEXT,
   machine_id INTEGER REFERENCES machines ON DELETE RESTRICT NOT NULL,
   log_entry TEXT NOT NULL
@@ -510,20 +509,20 @@ CREATE INDEX machine_log_machine_timestamp_idx ON machine_logs (machine_timestam
 
 CREATE TABLE server_logs (
   id INTEGER PRIMARY KEY NOT NULL,
-  timestamp TEXT NOT NULL,
+  timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   log_entry TEXT NOT NULL
 );
 CREATE INDEX server_log_timestamp_idx ON server_logs (timestamp DESC);
 
 CREATE TABLE migrations (
   id INTEGER PRIMARY KEY NOT NULL,
-  timestamp TEXT NOT NULL,
+  timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   last_migration_applied INTEGER NOT NULL
 );
 
 CREATE TABLE compliance_requirements (
   id INTEGER PRIMARY KEY NOT NULL,
-  timestamp TEXT NOT NULL,
+  timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   requirement_type TEXT REFERENCES requirement_types ON DELETE RESTRICT NOT NULL,
   expiration_days INTEGER,
   tier_escalation_days INTEGER NOT NULL DEFAULT 0,
@@ -533,7 +532,7 @@ CREATE TABLE compliance_requirements (
 
 CREATE TABLE compliance_triggers (
   id INTEGER PRIMARY KEY NOT NULL,
-  timestamp TEXT NOT NULL,
+  timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   trigger_type TEXT NOT NULL,
   requirement_type TEXT REFERENCES requirement_types ON DELETE RESTRICT NOT NULL,
   fiat_code TEXT REFERENCES fiat_codes ON DELETE RESTRICT NOT NULL,
