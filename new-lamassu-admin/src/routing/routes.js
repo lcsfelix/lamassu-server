@@ -12,6 +12,7 @@ import Services from 'src/pages/Services/Services'
 import AuthRegister from 'src/pages/AuthRegister'
 import OperatorInfo from 'src/pages/OperatorInfo/OperatorInfo'
 import Notifications from 'src/pages/Notifications/Notifications'
+import WalletSettings from 'src/pages/Wallet/WalletSettings'
 
 import MachineStatus from '../pages/maintenance/MachineStatus'
 
@@ -59,6 +60,11 @@ const tree = [
         label: 'Notifications',
         route: '/settings/notifications'
       },
+      {
+        key: 'wallet',
+        label: 'Wallet',
+        route: '/settings/wallet'
+      },
       { key: 'info', label: 'Operator Info', route: '/settings/operator-info' }
     ]
   }
@@ -88,6 +94,7 @@ const Routes = () => (
     <Route path="/settings/locale" component={Locales} />
     <Route path="/settings/3rd-party-services" component={Services} />
     <Route path="/settings/notifications" component={Notifications} />
+    <Route path="/settings/wallet" component={WalletSettings} />
     <Route path="/settings/operator-info" component={OperatorInfo} />
     <Route path="/maintenance/logs" component={Logs} />
     <Route path="/maintenance/funding" component={Funding} />
