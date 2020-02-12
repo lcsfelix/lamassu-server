@@ -18,6 +18,21 @@ import { ReactComponent as EditIcon } from 'src/styling/icons/action/edit/enable
 import { ReactComponent as DisabledEditIcon } from 'src/styling/icons/action/edit/disabled.svg'
 import commonStyles from 'src/pages/common.styles'
 import { zircon } from 'src/styling/variables'
+import Modal from 'src/components/Modal'
+
+import WizardPage01 from './WizardPage01'
+import WizardPage02 from './WizardPage02'
+import {
+  CRYPTOCURRENCY_KEY,
+  TICKER_KEY,
+  WALLET_KEY,
+  EXCHANGE_KEY,
+  ZERO_CONF_KEY,
+  EDIT_KEY,
+  ENABLE_KEY,
+  SIZE_KEY,
+  TEXT_ALIGN_KEY
+} from './aux.js'
 
 const localStyles = {
   disabledDrawing: {
@@ -30,22 +45,15 @@ const localStyles = {
       height: 36,
       width: 678
     }
+  },
+  modal: {
+    width: 544
   }
 }
 
 const styles = R.merge(commonStyles, localStyles)
 
 const useStyles = makeStyles(styles)
-
-const CRYPTOCURRENCY_KEY = 'cryptocurrency'
-const TICKER_KEY = 'ticker'
-const WALLET_KEY = 'wallet'
-const EXCHANGE_KEY = 'exchange'
-const ZERO_CONF_KEY = 'zeroConf'
-const EDIT_KEY = 'edit'
-const ENABLE_KEY = 'enabled'
-const SIZE_KEY = 'size'
-const TEXT_ALIGN_KEY = 'textAlign'
 
 const columns = {
   [CRYPTOCURRENCY_KEY]: {
@@ -81,6 +89,12 @@ const columns = {
 const GET_INFO = gql`
   {
     config
+    accounts {
+      code
+      display
+      class
+      cryptos
+    }
     cryptoCurrencies {
       code
       display
@@ -98,11 +112,19 @@ const schema = {
 
 const WalletSettings = () => {
   const [cryptoCurrencies, setCryptoCurrencies] = useState(null)
+  // const [tickers, setTickers] = useState(null)
+  // const [wallets, setWallets] = useState(null)
+  // const [exchanges, setExchanges] = useState(null)
+  // const [zeroConfs, setZeroConfs] = useState(null)
   const [state, setState] = useState(null)
+  const [modalContent, setModalContent] = useState(null)
+  const [modalOpen, setModalOpen] = useState(false)
 
   useQuery(GET_INFO, {
     onCompleted: data => {
-      const { cryptoCurrencies, config } = data
+      const { cryptoCurrencies, config, accounts } = data
+      console.log(accounts)
+
       const wallet = config?.wallet ?? []
 
       const newState = R.map(crypto => {
@@ -113,6 +135,10 @@ const WalletSettings = () => {
 
       setState(newState)
       setCryptoCurrencies(cryptoCurrencies)
+      // setTickers(R.filter(R.propEq('class', 'ticker'), accounts))
+      // setWallets(R.filter(R.propEq('class', 'wallet'), accounts))
+      // setExchanges(R.filter(R.propEq('class', 'exchange'), accounts))
+      // setZeroConfs(R.filter(R.propEq('class', 'zeroConf'), accounts))
     },
     onError: error => console.error(error)
   })
@@ -121,12 +147,60 @@ const WalletSettings = () => {
 
   const getSize = key => columns[key][SIZE_KEY]
   const getTextAlign = key => columns[key][TEXT_ALIGN_KEY]
+  const getDisplayName = row =>
+    R.path(['display'])(
+      R.find(R.propEq('code', row[CRYPTOCURRENCY_KEY]))(cryptoCurrencies)
+    )
   const isSet = crypto =>
     crypto[TICKER_KEY] &&
     crypto[WALLET_KEY] &&
     crypto[EXCHANGE_KEY] &&
     crypto[ZERO_CONF_KEY]
-  const handleEnable = name => event => console.log(name, event.target.checked)
+  const handleEnable = row => event => {
+    if (!isSet(row)) {
+      setModalContent(
+        <WizardPage01
+          crypto={row}
+          coinName={getDisplayName(row)}
+          handleModalNavigation={handleModalNavigation(row)}
+        />
+      )
+      setModalOpen(true)
+    }
+  }
+  const handleModalClose = () => {
+    setModalOpen(false)
+    setModalContent(null)
+  }
+  const handleModalNavigation = row => currentPage => {
+    switch (currentPage) {
+      case 1:
+        // Start
+        setModalContent(
+          <WizardPage02
+            crypto={row}
+            coinName={getDisplayName(row)}
+            handleModalNavigation={handleModalNavigation(row)}
+            pageName="ticker"
+          />
+        )
+        break
+      case 2:
+        // Ticker
+        break
+      case 3:
+        // Wallet
+        break
+      case 4:
+        // Exchange
+        break
+      case 5:
+        // Zero Conf
+        break
+      default:
+        break
+    }
+  }
 
   if (!state) return null
 
@@ -174,11 +248,7 @@ const WalletSettings = () => {
                 <Td
                   size={getSize(CRYPTOCURRENCY_KEY)}
                   textAlign={getTextAlign(CRYPTOCURRENCY_KEY)}>
-                  {R.path(['display'])(
-                    R.find(R.propEq('code', row[CRYPTOCURRENCY_KEY]))(
-                      cryptoCurrencies
-                    )
-                  )}
+                  {getDisplayName(row)}
                 </Td>
                 {!isSet(row) && (
                   <Td
@@ -230,7 +300,7 @@ const WalletSettings = () => {
                   textAlign={getTextAlign(ENABLE_KEY)}>
                   <Switch
                     checked={row[ENABLE_KEY]}
-                    onChange={handleEnable(row[CRYPTOCURRENCY_KEY])}
+                    onChange={handleEnable(row)}
                     value={row[CRYPTOCURRENCY_KEY]}
                   />
                 </Td>
@@ -239,6 +309,14 @@ const WalletSettings = () => {
           </TBody>
         </Table>
       </div>
+      <Modal
+        aria-labelledby="simple-modal-title"
+        aria-describedby="simple-modal-description"
+        open={modalOpen}
+        handleClose={handleModalClose}
+        className={classes.modal}>
+        {modalContent}
+      </Modal>
     </>
   )
 }
