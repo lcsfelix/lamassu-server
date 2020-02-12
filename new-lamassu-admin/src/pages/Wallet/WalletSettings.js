@@ -112,7 +112,7 @@ const schema = {
 
 const WalletSettings = () => {
   const [cryptoCurrencies, setCryptoCurrencies] = useState(null)
-  // const [tickers, setTickers] = useState(null)
+  const [tickers, setTickers] = useState(null)
   // const [wallets, setWallets] = useState(null)
   // const [exchanges, setExchanges] = useState(null)
   // const [zeroConfs, setZeroConfs] = useState(null)
@@ -135,7 +135,7 @@ const WalletSettings = () => {
 
       setState(newState)
       setCryptoCurrencies(cryptoCurrencies)
-      // setTickers(R.filter(R.propEq('class', 'ticker'), accounts))
+      setTickers(R.filter(R.propEq('class', 'ticker'), accounts))
       // setWallets(R.filter(R.propEq('class', 'wallet'), accounts))
       // setExchanges(R.filter(R.propEq('class', 'exchange'), accounts))
       // setZeroConfs(R.filter(R.propEq('class', 'zeroConf'), accounts))
@@ -151,6 +151,7 @@ const WalletSettings = () => {
     R.path(['display'])(
       R.find(R.propEq('code', row[CRYPTOCURRENCY_KEY]))(cryptoCurrencies)
     )
+
   const isSet = crypto =>
     crypto[TICKER_KEY] &&
     crypto[WALLET_KEY] &&
@@ -182,6 +183,10 @@ const WalletSettings = () => {
             coinName={getDisplayName(row)}
             handleModalNavigation={handleModalNavigation(row)}
             pageName="ticker"
+            elements={R.filter(
+              ticker => R.includes(row[CRYPTOCURRENCY_KEY], ticker.cryptos),
+              tickers
+            )}
           />
         )
         break
