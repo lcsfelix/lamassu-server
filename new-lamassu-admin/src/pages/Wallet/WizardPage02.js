@@ -8,6 +8,8 @@ import Stage from 'src/components/Stage'
 import { startCase } from 'src/utils/string'
 import { RadioGroup } from 'src/components/inputs'
 
+import { TICKER_KEY } from './aux'
+
 const styles = {
   modalContent: {
     display: 'flex',
@@ -34,21 +36,50 @@ const styles = {
   },
   stages: {
     marginBottom: 0
+  },
+  alreadySetupRadioButtons: {
+    display: 'flex',
+    flexDirection: 'row'
   }
 }
 
 const useStyles = makeStyles(styles)
 
-const WizardPage02 = ({ crypto, coinName, pageName, elements }) => {
+const WizardPage02 = ({
+  crypto,
+  coinName,
+  pageName,
+  alreadySetUp,
+  notSetUp,
+  handleModalNavigation
+}) => {
   const [selectedRadio, setSelectedRadio] = useState(null)
+  const [setUpNew, setSetUpNew] = useState(null)
 
   const classes = useStyles()
 
-  const radioButtonOptions = R.map(el => {
-    return { label: el.display, value: el.code }
-  })(elements)
+  const radioButtonOptions =
+    alreadySetUp &&
+    R.map(el => {
+      return { label: el.display, value: el.code }
+    })(alreadySetUp)
 
-  const handleRadioButtons = R.o(setSelectedRadio, R.path(['target', 'value']))
+  const handleRadioButtons = event => {
+    setSetUpNew('')
+    R.o(setSelectedRadio, R.path(['target', 'value']))(event)
+  }
+
+  const handleSetUpNew = event => {
+    setSelectedRadio('')
+    R.o(setSetUpNew, R.path(['target', 'value']))(event)
+  }
+
+  const handleNext = event => {
+    handleModalNavigation(
+      R.mergeDeepRight(crypto, { [TICKER_KEY]: selectedRadio })
+    )(2)
+    setSelectedRadio(null)
+  }
 
   return (
     <div className={classes.modalContent}>
@@ -61,15 +92,31 @@ const WizardPage02 = ({ crypto, coinName, pageName, elements }) => {
         className={classes.stages}
       />
       <H4>{`Select a ${pageName} or set up a new one`}</H4>
-      <RadioGroup
-        name="already-setup-select"
-        value={selectedRadio || radioButtonOptions[0]}
-        options={radioButtonOptions}
-        ariaLabel="already-setup-select"
-        onChange={handleRadioButtons}
-        className={classes.radioButtons}
-      />
-      <Button>Next</Button>
+      {alreadySetUp && (
+        <RadioGroup
+          name="already-setup-select"
+          value={selectedRadio || radioButtonOptions[0]}
+          options={radioButtonOptions}
+          ariaLabel="already-setup-select"
+          onChange={handleRadioButtons}
+          className={classes.alreadySetupRadioButtons}
+        />
+      )}
+      {notSetUp && (
+        <div>
+          <RadioGroup
+            name="setup-new-select"
+            value={setUpNew || ''}
+            options={[{ label: 'Set up new', value: 'new' }]}
+            ariaLabel="setup-new-select"
+            onChange={handleSetUpNew}
+            className={classes.alreadySetupRadioButtons}
+          />
+        </div>
+      )}
+      <Button disabled={!selectedRadio} onClick={handleNext}>
+        Next
+      </Button>
     </div>
   )
 }

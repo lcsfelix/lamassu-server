@@ -112,7 +112,8 @@ const schema = {
 
 const WalletSettings = () => {
   const [cryptoCurrencies, setCryptoCurrencies] = useState(null)
-  const [tickers, setTickers] = useState(null)
+  const [accounts, setAccounts] = useState(null)
+  const [services, setServices] = useState(null)
   // const [wallets, setWallets] = useState(null)
   // const [exchanges, setExchanges] = useState(null)
   // const [zeroConfs, setZeroConfs] = useState(null)
@@ -123,9 +124,9 @@ const WalletSettings = () => {
   useQuery(GET_INFO, {
     onCompleted: data => {
       const { cryptoCurrencies, config, accounts } = data
-      console.log(accounts)
 
       const wallet = config?.wallet ?? []
+      const services = config?.accounts ?? {}
 
       const newState = R.map(crypto => {
         const el = R.find(R.propEq(CRYPTOCURRENCY_KEY, crypto.code))(wallet)
@@ -135,8 +136,8 @@ const WalletSettings = () => {
 
       setState(newState)
       setCryptoCurrencies(cryptoCurrencies)
-      setTickers(R.filter(R.propEq('class', 'ticker'), accounts))
-      // setWallets(R.filter(R.propEq('class', 'wallet'), accounts))
+      setAccounts(accounts)
+      setServices(services)
       // setExchanges(R.filter(R.propEq('class', 'exchange'), accounts))
       // setZeroConfs(R.filter(R.propEq('class', 'zeroConf'), accounts))
     },
@@ -151,6 +152,23 @@ const WalletSettings = () => {
     R.path(['display'])(
       R.find(R.propEq('code', row[CRYPTOCURRENCY_KEY]))(cryptoCurrencies)
     )
+
+  const getAlreadySetUp = serviceClass => cryptocode => {
+    const possible = R.filter(
+      ticker => R.includes(cryptocode, ticker.cryptos),
+      R.filter(R.propEq('class', serviceClass), accounts)
+    )
+    const isSetUp = account => R.includes(account.code, R.keys(services))
+    const alreadySetUp = R.filter(isSetUp, possible)
+    return R.isEmpty(alreadySetUp) ? undefined : alreadySetUp
+  }
+  const getNotSetup = serviceClass => cryptocode => {
+    const possible = R.filter(
+      ticker => R.includes(cryptocode, ticker.cryptos),
+      R.filter(R.propEq('class', serviceClass), accounts)
+    )
+    return R.without(getAlreadySetUp(serviceClass)(cryptocode) ?? [], possible)
+  }
 
   const isSet = crypto =>
     crypto[TICKER_KEY] &&
@@ -169,11 +187,14 @@ const WalletSettings = () => {
       setModalOpen(true)
     }
   }
+
   const handleModalClose = () => {
     setModalOpen(false)
     setModalContent(null)
   }
   const handleModalNavigation = row => currentPage => {
+    const cryptocode = row[CRYPTOCURRENCY_KEY]
+
     switch (currentPage) {
       case 1:
         // Start
@@ -181,17 +202,27 @@ const WalletSettings = () => {
           <WizardPage02
             crypto={row}
             coinName={getDisplayName(row)}
-            handleModalNavigation={handleModalNavigation(row)}
+            handleModalNavigation={handleModalNavigation}
             pageName="ticker"
-            elements={R.filter(
-              ticker => R.includes(row[CRYPTOCURRENCY_KEY], ticker.cryptos),
-              tickers
+            alreadySetUp={R.filter(
+              ticker => R.includes(cryptocode, ticker.cryptos),
+              R.filter(R.propEq('class', 'ticker'), accounts)
             )}
           />
         )
         break
       case 2:
         // Ticker
+        setModalContent(
+          <WizardPage02
+            crypto={row}
+            coinName={getDisplayName(row)}
+            handleModalNavigation={handleModalNavigation}
+            pageName="wallet"
+            alreadySetUp={getAlreadySetUp(WALLET_KEY)(cryptocode)}
+            notSetUp={getNotSetup(WALLET_KEY)(cryptocode)}
+          />
+        )
         break
       case 3:
         // Wallet
