@@ -1,9 +1,10 @@
+import React, { memo, useState } from 'react'
+import Downshift from 'downshift'
+import * as R from 'ramda'
+import classnames from 'classnames'
 import Paper from '@material-ui/core/Paper'
 import Popper from '@material-ui/core/Popper'
 import { withStyles } from '@material-ui/core/styles'
-import Downshift from 'downshift'
-import * as R from 'ramda'
-import React, { memo, useState } from 'react'
 
 import {
   renderInput,
@@ -12,7 +13,7 @@ import {
   styles
 } from './commons'
 
-const Autocomplete = memo(
+const AutocompleteSelect = memo(
   ({
     suggestions,
     classes,
@@ -21,11 +22,14 @@ const Autocomplete = memo(
     itemToString,
     code = 'code',
     display = 'display',
+    name,
+    value,
+    touched,
+    error,
+    handleChange,
+    className,
     ...props
   }) => {
-    const { name, value, onBlur } = props.field
-    const { touched, errors, setFieldValue } = props.form
-
     const [popperNode, setPopperNode] = useState(null)
 
     return (
@@ -36,7 +40,7 @@ const Autocomplete = memo(
           if (it) return it[display]
           return undefined
         }}
-        onChange={it => setFieldValue(name, it)}
+        onChange={handleChange}
         defaultHighlightedIndex={0}
         selectedItem={value}>
         {({
@@ -51,19 +55,15 @@ const Autocomplete = memo(
           toggleMenu,
           clearSelection
         }) => (
-          <div className={classes.container}>
+          <div className={classnames(classes.container, className)}>
             {renderInput({
               name,
               fullWidth: true,
-              error:
-                (touched[`${name}-input`] || touched[name]) && errors[name],
-              success:
-                (touched[`${name}-input`] || touched[name] || value) &&
-                !errors[name],
+              error: touched && error,
+              success: touched && !error,
               InputProps: getInputProps({
                 value: inputValue2 || '',
                 placeholder,
-                onBlur,
                 onClick: event => {
                   setPopperNode(event.currentTarget.parentElement)
                   toggleMenu()
@@ -118,4 +118,4 @@ const Autocomplete = memo(
   }
 )
 
-export default withStyles(styles)(Autocomplete)
+export default withStyles(styles)(AutocompleteSelect)

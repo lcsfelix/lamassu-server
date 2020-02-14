@@ -80,8 +80,7 @@ function filterSuggestions(
     distance: 100,
     maxPatternLength: 32,
     minMatchCharLength: 1,
-    code,
-    display
+    keys: [code, display]
   }
 
   const fuse = new Fuse(suggestions, options)
