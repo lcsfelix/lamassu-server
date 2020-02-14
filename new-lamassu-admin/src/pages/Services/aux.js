@@ -4,7 +4,7 @@ import { makeStyles } from '@material-ui/core'
 
 import SingleRowTable from 'src/components/single-row-table/SingleRowTable'
 
-const getValue = R.curry((account, code) => account[code] ?? '')
+const getValue = R.curry((account, code) => (account ? account[code] : ''))
 
 const formatLong = value => {
   if (!value) return ''

@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import * as R from 'ramda'
 import { gql } from 'apollo-boost'
 import { makeStyles } from '@material-ui/core'
-import { useQuery } from '@apollo/react-hooks'
+import { useQuery, useMutation } from '@apollo/react-hooks'
 
 import Title from 'src/components/Title'
 import {
@@ -102,6 +102,12 @@ const GET_INFO = gql`
   }
 `
 
+const SAVE_CONFIG = gql`
+  mutation Save($config: JSONObject) {
+    saveConfig(config: $config)
+  }
+`
+
 const schema = {
   [TICKER_KEY]: '',
   [WALLET_KEY]: '',
@@ -120,6 +126,9 @@ const WalletSettings = () => {
   const [state, setState] = useState(null)
   const [modalContent, setModalContent] = useState(null)
   const [modalOpen, setModalOpen] = useState(false)
+  const [saveConfig] = useMutation(SAVE_CONFIG, {
+    onCompleted: data => setServices(data.saveConfig.accounts)
+  })
 
   useQuery(GET_INFO, {
     onCompleted: data => {
@@ -169,6 +178,11 @@ const WalletSettings = () => {
     )
     return R.without(getAlreadySetUp(serviceClass)(cryptocode) ?? [], possible)
   }
+  const saveNewService = (code, it) => {
+    const newAccounts = R.clone(services)
+    newAccounts[code] = it
+    return saveConfig({ variables: { config: { accounts: newAccounts } } })
+  }
 
   const isSet = crypto =>
     crypto[TICKER_KEY] &&
@@ -194,6 +208,8 @@ const WalletSettings = () => {
   }
   const handleModalNavigation = row => currentPage => {
     const cryptocode = row[CRYPTOCURRENCY_KEY]
+
+    console.log(currentPage)
 
     switch (currentPage) {
       case 1:
@@ -223,11 +239,21 @@ const WalletSettings = () => {
             currentStage={2}
             alreadySetUp={getAlreadySetUp(WALLET_KEY)(cryptocode)}
             notSetUp={getNotSetup(WALLET_KEY)(cryptocode)}
+            saveNewService={saveNewService}
           />
         )
         break
       case 3:
         // Wallet
+        setModalContent(
+          <WizardPage02
+            crypto={row}
+            coinName={getDisplayName(row)}
+            handleModalNavigation={handleModalNavigation}
+            pageName="exchange"
+            currentStage={3}
+          />
+        )
         break
       case 4:
         // Exchange

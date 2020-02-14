@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import * as R from 'ramda'
 import classnames from 'classnames'
-import { Formik, Form } from 'formik'
+import { Formik, Field as FormikField } from 'formik'
 import { makeStyles } from '@material-ui/core'
 
 import { H1, Info2, H4 } from 'src/components/typography'
@@ -9,6 +9,16 @@ import { Button } from 'src/components/buttons'
 import Stage from 'src/components/Stage'
 import { startCase } from 'src/utils/string'
 import { RadioGroup, AutocompleteSelect } from 'src/components/inputs'
+
+import { getBitgoFields, getBitgoFormik } from '../Services/Bitgo'
+import { getBitstampFields, getBitstampFormik } from '../Services/Bitstamp'
+import {
+  getBlockcypherFields,
+  getBlockcypherFormik
+} from '../Services/Blockcypher'
+import { getInfuraFields, getInfuraFormik } from '../Services/Infura'
+import { getKrakenFields, getKrakenFormik } from '../Services/Kraken'
+import { getStrikeFields, getStrikeFormik } from '../Services/Strike'
 
 import { TICKER_KEY } from './aux'
 
@@ -25,15 +35,15 @@ const styles = {
     },
     '& > p': {
       margin: 0
-    },
-    '& > button': {
-      alignSelf: 'flex-end',
-      width: 67,
-      padding: [[0, 0]],
-      margin: [['auto', 0, 0]],
-      '&:active': {
-        margin: [['auto', 0, 0]]
-      }
+    }
+  },
+  submitButton: {
+    alignSelf: 'flex-end',
+    width: 67,
+    padding: [[0, 0]],
+    margin: [['auto', 0, 0]],
+    '&:active': {
+      margin: [['auto', 0, 0]]
     }
   },
   stages: {
@@ -60,6 +70,36 @@ const styles = {
     width: 204,
     flexGrow: 0,
     bottom: 7
+  },
+  newServiceForm: {
+    display: 'flex',
+    flexDirection: 'column'
+  },
+  newServiceFormFields: {
+    marginBottom: 48
+  },
+  formInput: {
+    '& .MuiInputBase-input': {
+      width: 426
+    }
+  }
+}
+
+const getNewServiceForm = serviceName => {
+  switch (serviceName) {
+    case 'bitgo':
+      return { fields: getBitgoFields(), formik: getBitgoFormik() }
+    case 'bitstamp':
+      return { fields: getBitstampFields(), formik: getBitstampFormik() }
+    case 'blockcypher':
+      return { fields: getBlockcypherFields(), formik: getBlockcypherFormik() }
+    case 'infura':
+      return { fields: getInfuraFields(), formik: getInfuraFormik() }
+    case 'kraken':
+      return { fields: getKrakenFields(), formik: getKrakenFormik() }
+    case 'strike':
+      return { fields: getStrikeFields(), formik: getStrikeFormik() }
+    default:
   }
 }
 
@@ -72,11 +112,13 @@ const WizardPage02 = ({
   currentStage,
   alreadySetUp,
   notSetUp,
-  handleModalNavigation
+  handleModalNavigation,
+  saveNewService
 }) => {
   const [selectedRadio, setSelectedRadio] = useState(null)
   const [setUpNew, setSetUpNew] = useState(null)
   const [selectedFromDropdown, setSelectedFromDropdown] = useState(null)
+  const [formContent, setFormContent] = useState(null)
 
   const classes = useStyles()
 
@@ -102,14 +144,25 @@ const WizardPage02 = ({
     R.o(setSetUpNew, R.path(['target', 'value']))(event)
   }
 
-  const handleNext = event => {
-    handleModalNavigation(
-      R.mergeDeepRight(crypto, { [TICKER_KEY]: selectedRadio })
-    )(2)
+  const handleNext = value => event => {
+    handleModalNavigation(R.mergeDeepRight(crypto, { [TICKER_KEY]: value }))(
+      currentStage + 1
+    )
     setSelectedRadio(null)
   }
 
-  console.log(selectedFromDropdown)
+  const handleSelectFromDropdown = it => {
+    setSelectedFromDropdown(it)
+    setFormContent(getNewServiceForm(it?.code))
+  }
+
+  const isSubmittable = () => {
+    if (selectedRadio) return true
+    if (!selectedRadio && selectedFromDropdown && !formContent) return true
+    return false
+  }
+
+  console.log(formContent)
 
   return (
     <div className={classes.modalContent}>
@@ -150,21 +203,64 @@ const WizardPage02 = ({
                 label={`Select ${pageName}`}
                 suggestions={notSetUp}
                 value={selectedFromDropdown}
-                handleChange={setSelectedFromDropdown}
+                handleChange={handleSelectFromDropdown}
                 className={classes.selectNew}
               />
             )}
           </div>
         )}
-        {selectedFromDropdown && (
-          <Formik>
-            <Form></Form>
-          </Formik>
-        )}
       </div>
-      <Button disabled={!selectedRadio} onClick={handleNext}>
-        Next
-      </Button>
+      {formContent && (
+        <Formik
+          initialValues={formContent.formik.initialValues}
+          validationSchema={formContent.formik.validationSchema}
+          onSubmit={values =>
+            saveNewService(selectedFromDropdown.code, values).then(m =>
+              handleNext(selectedFromDropdown.code)
+            )(currentStage)
+          }>
+          {props => (
+            <form
+              onReset={props.handleReset}
+              onSubmit={props.handleSubmit}
+              className={classes.newServiceForm}
+              {...props}>
+              <div className={classes.newServiceFormFields}>
+                {formContent.fields.map((field, idx) => (
+                  <div key={idx} className={classes.field}>
+                    <FormikField
+                      id={field.name}
+                      name={field.name}
+                      component={field.component}
+                      placeholder={field.placeholder}
+                      type={field.type}
+                      label={field.label}
+                      className={classes.formInput}
+                      onFocus={() => {
+                        // setError(null)
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+              <Button
+                disabled={R.isEmpty(props.touched) || !props.isValid}
+                className={classes.submitButton}
+                type="submit">
+                Next
+              </Button>
+            </form>
+          )}
+        </Formik>
+      )}
+      {!formContent && (
+        <Button
+          className={classes.submitButton}
+          disabled={!isSubmittable()}
+          onClick={handleNext(selectedRadio)}>
+          Next
+        </Button>
+      )}
     </div>
   )
 }
