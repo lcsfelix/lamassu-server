@@ -1,12 +1,14 @@
 import React, { useState } from 'react'
 import * as R from 'ramda'
+import classnames from 'classnames'
+import { Formik, Form } from 'formik'
 import { makeStyles } from '@material-ui/core'
 
 import { H1, Info2, H4 } from 'src/components/typography'
 import { Button } from 'src/components/buttons'
 import Stage from 'src/components/Stage'
 import { startCase } from 'src/utils/string'
-import { RadioGroup } from 'src/components/inputs'
+import { RadioGroup, AutocompleteSelect } from 'src/components/inputs'
 
 import { TICKER_KEY } from './aux'
 
@@ -37,9 +39,27 @@ const styles = {
   stages: {
     marginBottom: 0
   },
+  radios: {
+    display: 'flex'
+  },
+  radiosAsColumn: {
+    flexDirection: 'column'
+  },
+  radiosAsRow: {
+    flexDirection: 'row'
+  },
   alreadySetupRadioButtons: {
     display: 'flex',
     flexDirection: 'row'
+  },
+  selectNewWrapper: {
+    display: 'flex',
+    alignItems: 'center'
+  },
+  selectNew: {
+    width: 204,
+    flexGrow: 0,
+    bottom: 7
   }
 }
 
@@ -49,14 +69,22 @@ const WizardPage02 = ({
   crypto,
   coinName,
   pageName,
+  currentStage,
   alreadySetUp,
   notSetUp,
   handleModalNavigation
 }) => {
   const [selectedRadio, setSelectedRadio] = useState(null)
   const [setUpNew, setSetUpNew] = useState(null)
+  const [selectedFromDropdown, setSelectedFromDropdown] = useState(null)
 
   const classes = useStyles()
+
+  const radiosClassNames = {
+    [classes.radios]: true,
+    [classes.radiosAsColumn]: !selectedFromDropdown,
+    [classes.radiosAsRow]: selectedFromDropdown
+  }
 
   const radioButtonOptions =
     alreadySetUp &&
@@ -81,39 +109,59 @@ const WizardPage02 = ({
     setSelectedRadio(null)
   }
 
+  console.log(selectedFromDropdown)
+
   return (
     <div className={classes.modalContent}>
       <H1>Enable {coinName}</H1>
       <Info2>{startCase(pageName)}</Info2>
       <Stage
         stages={4}
-        currentStage={1}
+        currentStage={currentStage}
         color="spring"
         className={classes.stages}
       />
       <H4>{`Select a ${pageName} or set up a new one`}</H4>
-      {alreadySetUp && (
-        <RadioGroup
-          name="already-setup-select"
-          value={selectedRadio || radioButtonOptions[0]}
-          options={radioButtonOptions}
-          ariaLabel="already-setup-select"
-          onChange={handleRadioButtons}
-          className={classes.alreadySetupRadioButtons}
-        />
-      )}
-      {notSetUp && (
-        <div>
+      <div className={classnames(radiosClassNames)}>
+        {alreadySetUp && (
           <RadioGroup
-            name="setup-new-select"
-            value={setUpNew || ''}
-            options={[{ label: 'Set up new', value: 'new' }]}
-            ariaLabel="setup-new-select"
-            onChange={handleSetUpNew}
+            name="already-setup-select"
+            value={selectedRadio || radioButtonOptions[0]}
+            options={radioButtonOptions}
+            ariaLabel="already-setup-select"
+            onChange={handleRadioButtons}
             className={classes.alreadySetupRadioButtons}
           />
-        </div>
-      )}
+        )}
+        {notSetUp && (
+          <div className={classes.selectNewWrapper}>
+            <RadioGroup
+              name="setup-new-select"
+              value={setUpNew || ''}
+              options={[{ label: 'Set up new', value: 'new' }]}
+              ariaLabel="setup-new-select"
+              onChange={handleSetUpNew}
+              className={classes.alreadySetupRadioButtons}
+            />
+            {setUpNew && (
+              <AutocompleteSelect
+                id="chooseNew"
+                name="chooseNew"
+                label={`Select ${pageName}`}
+                suggestions={notSetUp}
+                value={selectedFromDropdown}
+                handleChange={setSelectedFromDropdown}
+                className={classes.selectNew}
+              />
+            )}
+          </div>
+        )}
+        {selectedFromDropdown && (
+          <Formik>
+            <Form></Form>
+          </Formik>
+        )}
+      </div>
       <Button disabled={!selectedRadio} onClick={handleNext}>
         Next
       </Button>

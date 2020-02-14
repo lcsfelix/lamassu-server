@@ -204,6 +204,7 @@ const WalletSettings = () => {
             coinName={getDisplayName(row)}
             handleModalNavigation={handleModalNavigation}
             pageName="ticker"
+            currentStage={1}
             alreadySetUp={R.filter(
               ticker => R.includes(cryptocode, ticker.cryptos),
               R.filter(R.propEq('class', 'ticker'), accounts)
@@ -219,6 +220,7 @@ const WalletSettings = () => {
             coinName={getDisplayName(row)}
             handleModalNavigation={handleModalNavigation}
             pageName="wallet"
+            currentStage={2}
             alreadySetUp={getAlreadySetUp(WALLET_KEY)(cryptocode)}
             notSetUp={getNotSetup(WALLET_KEY)(cryptocode)}
           />
