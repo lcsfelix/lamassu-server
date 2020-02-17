@@ -214,6 +214,7 @@ const WalletSettings = () => {
     crypto[WALLET_KEY] &&
     crypto[EXCHANGE_KEY] &&
     crypto[ZERO_CONF_KEY]
+
   const handleEnable = row => event => {
     if (!isSet(row)) {
       setModalContent(
@@ -228,6 +229,11 @@ const WalletSettings = () => {
     }
 
     save(R.assoc(ENABLE_KEY, event.target.checked, row))
+  }
+
+  const handleEditClick = row => {
+    setModalOpen(true)
+    handleModalNavigation(row)(1)
   }
 
   const handleModalClose = () => {
@@ -395,7 +401,9 @@ const WalletSettings = () => {
                 <Td size={getSize(EDIT_KEY)} textAlign={getTextAlign(EDIT_KEY)}>
                   {!isSet(row) && <DisabledEditIcon />}
                   {isSet(row) && (
-                    <button className={classes.iconButton}>
+                    <button
+                      className={classes.iconButton}
+                      onClick={() => handleEditClick(row)}>
                       <EditIcon />
                     </button>
                   )}

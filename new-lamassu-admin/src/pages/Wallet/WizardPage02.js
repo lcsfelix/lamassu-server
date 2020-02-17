@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import * as R from 'ramda'
 import classnames from 'classnames'
 import { Formik, Field as FormikField } from 'formik'
@@ -115,7 +115,13 @@ const WizardPage02 = ({
   handleModalNavigation,
   saveNewService
 }) => {
-  const [selectedRadio, setSelectedRadio] = useState(null)
+  const [selectedRadio, setSelectedRadio] = useState(
+    crypto[pageName] !== '' ? crypto[pageName] : null
+  )
+  useEffect(
+    () => setSelectedRadio(crypto[pageName] !== '' ? crypto[pageName] : null),
+    [crypto, pageName]
+  )
   const [setUpNew, setSetUpNew] = useState(null)
   const [selectedFromDropdown, setSelectedFromDropdown] = useState(null)
   const [formContent, setFormContent] = useState(null)
@@ -135,17 +141,17 @@ const WizardPage02 = ({
     })(alreadySetUp)
 
   const handleRadioButtons = event => {
+    R.o(setSelectedRadio, R.path(['target', 'value']))(event)
     setSetUpNew('')
     setFormContent(null)
     setSelectedFromDropdown(null)
-    R.o(setSelectedRadio, R.path(['target', 'value']))(event)
   }
 
   const handleSetUpNew = event => {
+    R.o(setSetUpNew, R.path(['target', 'value']))(event)
     setSelectedRadio('')
     setFormContent(null)
     setSelectedFromDropdown(null)
-    R.o(setSetUpNew, R.path(['target', 'value']))(event)
   }
 
   const handleNext = value => event => {
