@@ -120,9 +120,6 @@ const WalletSettings = () => {
   const [cryptoCurrencies, setCryptoCurrencies] = useState(null)
   const [accounts, setAccounts] = useState(null)
   const [services, setServices] = useState(null)
-  // const [wallets, setWallets] = useState(null)
-  // const [exchanges, setExchanges] = useState(null)
-  // const [zeroConfs, setZeroConfs] = useState(null)
   const [state, setState] = useState(null)
   const [modalContent, setModalContent] = useState(null)
   const [modalOpen, setModalOpen] = useState(false)
@@ -147,8 +144,6 @@ const WalletSettings = () => {
       setCryptoCurrencies(cryptoCurrencies)
       setAccounts(accounts)
       setServices(services)
-      // setExchanges(R.filter(R.propEq('class', 'exchange'), accounts))
-      // setZeroConfs(R.filter(R.propEq('class', 'zeroConf'), accounts))
     },
     onError: error => console.error(error)
   })
@@ -157,31 +152,61 @@ const WalletSettings = () => {
 
   const getSize = key => columns[key][SIZE_KEY]
   const getTextAlign = key => columns[key][TEXT_ALIGN_KEY]
-  const getDisplayName = row =>
-    R.path(['display'])(
-      R.find(R.propEq('code', row[CRYPTOCURRENCY_KEY]))(cryptoCurrencies)
-    )
 
+  const getDisplayName = list => code =>
+    R.path(['display'], R.find(R.propEq('code', code), list))
+
+  const getCryptoDisplayName = row =>
+    getDisplayName(cryptoCurrencies)(row[CRYPTOCURRENCY_KEY])
+
+  const getNoSetUpNeeded = accounts => {
+    const needs = [
+      'bitgo',
+      'bitstamp',
+      'blockcypher',
+      'infura',
+      'kraken',
+      'strike'
+    ]
+    return R.filter(account => !R.includes(account.code, needs), accounts)
+  }
   const getAlreadySetUp = serviceClass => cryptocode => {
     const possible = R.filter(
-      ticker => R.includes(cryptocode, ticker.cryptos),
+      service => R.includes(cryptocode, service.cryptos),
       R.filter(R.propEq('class', serviceClass), accounts)
     )
-    const isSetUp = account => R.includes(account.code, R.keys(services))
+    const isSetUp = service => R.includes(service.code, R.keys(services))
     const alreadySetUp = R.filter(isSetUp, possible)
-    return R.isEmpty(alreadySetUp) ? undefined : alreadySetUp
+    const join = [...alreadySetUp, ...getNoSetUpNeeded(possible)]
+    return R.isEmpty(join) ? null : join
   }
-  const getNotSetup = serviceClass => cryptocode => {
+  const getNotSetUp = serviceClass => cryptocode => {
     const possible = R.filter(
-      ticker => R.includes(cryptocode, ticker.cryptos),
+      service => R.includes(cryptocode, service.cryptos),
       R.filter(R.propEq('class', serviceClass), accounts)
     )
-    return R.without(getAlreadySetUp(serviceClass)(cryptocode) ?? [], possible)
+    const without = R.without(
+      getAlreadySetUp(serviceClass)(cryptocode) ?? [],
+      possible
+    )
+    return R.isEmpty(without) ? null : without
   }
+
   const saveNewService = (code, it) => {
     const newAccounts = R.clone(services)
     newAccounts[code] = it
     return saveConfig({ variables: { config: { accounts: newAccounts } } })
+  }
+  const save = it => {
+    const idx = R.findIndex(
+      R.propEq(CRYPTOCURRENCY_KEY, it[CRYPTOCURRENCY_KEY]),
+      state
+    )
+    const merged = R.mergeDeepRight(state[idx], it)
+    const updated = R.update(idx, merged, state)
+    return saveConfig({
+      variables: { config: { wallet: updated } }
+    })
   }
 
   const isSet = crypto =>
@@ -194,12 +219,15 @@ const WalletSettings = () => {
       setModalContent(
         <WizardPage01
           crypto={row}
-          coinName={getDisplayName(row)}
+          coinName={getCryptoDisplayName(row)}
           handleModalNavigation={handleModalNavigation(row)}
         />
       )
       setModalOpen(true)
+      return
     }
+
+    save(R.assoc(ENABLE_KEY, event.target.checked, row))
   }
 
   const handleModalClose = () => {
@@ -209,17 +237,14 @@ const WalletSettings = () => {
   const handleModalNavigation = row => currentPage => {
     const cryptocode = row[CRYPTOCURRENCY_KEY]
 
-    console.log(currentPage)
-
     switch (currentPage) {
       case 1:
-        // Start
         setModalContent(
           <WizardPage02
             crypto={row}
-            coinName={getDisplayName(row)}
+            coinName={getCryptoDisplayName(row)}
             handleModalNavigation={handleModalNavigation}
-            pageName="ticker"
+            pageName={TICKER_KEY}
             currentStage={1}
             alreadySetUp={R.filter(
               ticker => R.includes(cryptocode, ticker.cryptos),
@@ -229,37 +254,53 @@ const WalletSettings = () => {
         )
         break
       case 2:
-        // Ticker
         setModalContent(
           <WizardPage02
             crypto={row}
-            coinName={getDisplayName(row)}
+            coinName={getCryptoDisplayName(row)}
             handleModalNavigation={handleModalNavigation}
-            pageName="wallet"
+            pageName={WALLET_KEY}
             currentStage={2}
             alreadySetUp={getAlreadySetUp(WALLET_KEY)(cryptocode)}
-            notSetUp={getNotSetup(WALLET_KEY)(cryptocode)}
+            notSetUp={getNotSetUp(WALLET_KEY)(cryptocode)}
             saveNewService={saveNewService}
           />
         )
         break
       case 3:
-        // Wallet
         setModalContent(
           <WizardPage02
             crypto={row}
-            coinName={getDisplayName(row)}
+            coinName={getCryptoDisplayName(row)}
             handleModalNavigation={handleModalNavigation}
-            pageName="exchange"
+            pageName={EXCHANGE_KEY}
             currentStage={3}
+            alreadySetUp={getAlreadySetUp(EXCHANGE_KEY)(cryptocode)}
+            notSetUp={getNotSetUp(EXCHANGE_KEY)(cryptocode)}
+            saveNewService={saveNewService}
           />
         )
         break
       case 4:
-        // Exchange
+        setModalContent(
+          <WizardPage02
+            crypto={row}
+            coinName={getCryptoDisplayName(row)}
+            handleModalNavigation={handleModalNavigation}
+            pageName={ZERO_CONF_KEY}
+            currentStage={4}
+            alreadySetUp={getAlreadySetUp(ZERO_CONF_KEY)(cryptocode)}
+            notSetUp={getNotSetUp(ZERO_CONF_KEY)(cryptocode)}
+            saveNewService={saveNewService}
+          />
+        )
         break
       case 5:
         // Zero Conf
+        save(R.assoc(ENABLE_KEY, true, row)).then(m => {
+          setModalOpen(false)
+          setModalContent(null)
+        })
         break
       default:
         break
@@ -312,7 +353,7 @@ const WalletSettings = () => {
                 <Td
                   size={getSize(CRYPTOCURRENCY_KEY)}
                   textAlign={getTextAlign(CRYPTOCURRENCY_KEY)}>
-                  {getDisplayName(row)}
+                  {getCryptoDisplayName(row)}
                 </Td>
                 {!isSet(row) && (
                   <Td
@@ -332,22 +373,22 @@ const WalletSettings = () => {
                     <Td
                       size={getSize(TICKER_KEY)}
                       textAlign={getTextAlign(TICKER_KEY)}>
-                      Ticker
+                      {getDisplayName(accounts)(row[TICKER_KEY])}
                     </Td>
                     <Td
                       size={getSize(WALLET_KEY)}
                       textAlign={getTextAlign(WALLET_KEY)}>
-                      Wallet
+                      {getDisplayName(accounts)(row[WALLET_KEY])}
                     </Td>
                     <Td
                       size={getSize(EXCHANGE_KEY)}
                       textAlign={getTextAlign(EXCHANGE_KEY)}>
-                      Exchange
+                      {getDisplayName(accounts)(row[EXCHANGE_KEY])}
                     </Td>
                     <Td
                       size={getSize(ZERO_CONF_KEY)}
                       textAlign={getTextAlign(ZERO_CONF_KEY)}>
-                      Zero Conf
+                      {getDisplayName(accounts)(row[ZERO_CONF_KEY])}
                     </Td>
                   </>
                 )}

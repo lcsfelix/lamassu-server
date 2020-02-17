@@ -20,8 +20,6 @@ import { getInfuraFields, getInfuraFormik } from '../Services/Infura'
 import { getKrakenFields, getKrakenFormik } from '../Services/Kraken'
 import { getStrikeFields, getStrikeFormik } from '../Services/Strike'
 
-import { TICKER_KEY } from './aux'
-
 const styles = {
   modalContent: {
     display: 'flex',
@@ -56,7 +54,8 @@ const styles = {
     flexDirection: 'column'
   },
   radiosAsRow: {
-    flexDirection: 'row'
+    flexDirection: 'row',
+    flexWrap: 'wrap'
   },
   alreadySetupRadioButtons: {
     display: 'flex',
@@ -64,7 +63,8 @@ const styles = {
   },
   selectNewWrapper: {
     display: 'flex',
-    alignItems: 'center'
+    alignItems: 'center',
+    flexShrink: 0
   },
   selectNew: {
     width: 204,
@@ -136,19 +136,26 @@ const WizardPage02 = ({
 
   const handleRadioButtons = event => {
     setSetUpNew('')
+    setFormContent(null)
+    setSelectedFromDropdown(null)
     R.o(setSelectedRadio, R.path(['target', 'value']))(event)
   }
 
   const handleSetUpNew = event => {
     setSelectedRadio('')
+    setFormContent(null)
+    setSelectedFromDropdown(null)
     R.o(setSetUpNew, R.path(['target', 'value']))(event)
   }
 
   const handleNext = value => event => {
-    handleModalNavigation(R.mergeDeepRight(crypto, { [TICKER_KEY]: value }))(
+    handleModalNavigation(R.mergeDeepRight(crypto, { [pageName]: value }))(
       currentStage + 1
     )
     setSelectedRadio(null)
+    setFormContent(null)
+    setSelectedFromDropdown(null)
+    setSetUpNew('')
   }
 
   const handleSelectFromDropdown = it => {
@@ -162,8 +169,6 @@ const WizardPage02 = ({
     return false
   }
 
-  console.log(formContent)
-
   return (
     <div className={classes.modalContent}>
       <H1>Enable {coinName}</H1>
@@ -174,7 +179,9 @@ const WizardPage02 = ({
         color="spring"
         className={classes.stages}
       />
-      <H4>{`Select a ${pageName} or set up a new one`}</H4>
+      <H4>{`Select a ${R.toLower(
+        startCase(pageName)
+      )} or set up a new one`}</H4>
       <div className={classnames(radiosClassNames)}>
         {alreadySetUp && (
           <RadioGroup
@@ -215,16 +222,17 @@ const WizardPage02 = ({
           initialValues={formContent.formik.initialValues}
           validationSchema={formContent.formik.validationSchema}
           onSubmit={values =>
-            saveNewService(selectedFromDropdown.code, values).then(m =>
-              handleNext(selectedFromDropdown.code)
-            )(currentStage)
+            saveNewService(selectedFromDropdown.code, values)
+              .then(m => {
+                handleNext(selectedFromDropdown.code)()
+              })
+              .catch(e => console.error(e))
           }>
           {props => (
             <form
               onReset={props.handleReset}
               onSubmit={props.handleSubmit}
-              className={classes.newServiceForm}
-              {...props}>
+              className={classes.newServiceForm}>
               <div className={classes.newServiceFormFields}>
                 {formContent.fields.map((field, idx) => (
                   <div key={idx} className={classes.field}>
@@ -257,7 +265,7 @@ const WizardPage02 = ({
         <Button
           className={classes.submitButton}
           disabled={!isSubmittable()}
-          onClick={handleNext(selectedRadio)}>
+          onClick={handleNext(selectedRadio || selectedFromDropdown?.code)}>
           Next
         </Button>
       )}
