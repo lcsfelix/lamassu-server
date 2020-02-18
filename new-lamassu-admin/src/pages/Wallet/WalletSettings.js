@@ -19,6 +19,7 @@ import { ReactComponent as DisabledEditIcon } from 'src/styling/icons/action/edi
 import commonStyles from 'src/pages/common.styles'
 import { zircon } from 'src/styling/variables'
 import Modal from 'src/components/Modal'
+import ErrorMessage from 'src/components/ErrorMessage'
 
 import WizardPage01 from './WizardPage01'
 import WizardPage02 from './WizardPage02'
@@ -48,6 +49,9 @@ const localStyles = {
   },
   modal: {
     width: 544
+  },
+  switchErrorMessage: {
+    margin: [['auto', 0, 'auto', 20]]
   }
 }
 
@@ -123,8 +127,12 @@ const WalletSettings = () => {
   const [state, setState] = useState(null)
   const [modalContent, setModalContent] = useState(null)
   const [modalOpen, setModalOpen] = useState(false)
+  const [error, setError] = useState(null)
   const [saveConfig] = useMutation(SAVE_CONFIG, {
-    onCompleted: data => setServices(data.saveConfig.accounts)
+    onCompleted: data => {
+      setServices(data.saveConfig.accounts)
+      setError(null)
+    }
   })
 
   useQuery(GET_INFO, {
@@ -225,10 +233,13 @@ const WalletSettings = () => {
         />
       )
       setModalOpen(true)
+      setError(null)
       return
     }
 
-    save(R.assoc(ENABLE_KEY, event.target.checked, row))
+    save(R.assoc(ENABLE_KEY, event.target.checked, row)).catch(error =>
+      setError(error)
+    )
   }
 
   const handleEditClick = row => {
@@ -303,14 +314,15 @@ const WalletSettings = () => {
         break
       case 5:
         // Zero Conf
-        save(R.assoc(ENABLE_KEY, true, row)).then(m => {
+        return save(R.assoc(ENABLE_KEY, true, row)).then(m => {
           setModalOpen(false)
           setModalContent(null)
         })
-        break
       default:
         break
     }
+
+    return new Promise(() => {})
   }
 
   if (!state) return null
@@ -320,6 +332,11 @@ const WalletSettings = () => {
       <div className={classes.titleWrapper}>
         <div className={classes.titleAndButtonsContainer}>
           <Title>Wallet Settings</Title>
+          {error && !modalOpen && (
+            <ErrorMessage className={classes.switchErrorMessage}>
+              Failed to save
+            </ErrorMessage>
+          )}
         </div>
       </div>
       <div className={classes.wrapper}>

@@ -20,8 +20,7 @@ const styles = {
     alignItems: 'center',
     color: errorColor,
     margin: 0,
-    whiteSpace: 'break-spaces',
-    width: 250
+    whiteSpace: 'break-spaces'
   }
 }
 

@@ -9,6 +9,7 @@ import { Button } from 'src/components/buttons'
 import Stage from 'src/components/Stage'
 import { startCase } from 'src/utils/string'
 import { RadioGroup, AutocompleteSelect } from 'src/components/inputs'
+import ErrorMessage from 'src/components/ErrorMessage'
 
 import { getBitgoFields, getBitgoFormik } from '../Services/Bitgo'
 import { getBitstampFields, getBitstampFormik } from '../Services/Bitstamp'
@@ -35,13 +36,17 @@ const styles = {
       margin: 0
     }
   },
-  submitButton: {
+  submitButtonWrapper: {
+    display: 'flex',
     alignSelf: 'flex-end',
+    margin: [['auto', 0, 0]]
+  },
+  submitButton: {
     width: 67,
     padding: [[0, 0]],
-    margin: [['auto', 0, 0]],
+    margin: [['auto', 0, 0, 20]],
     '&:active': {
-      margin: [['auto', 0, 0]]
+      margin: [['auto', 0, 0, 20]]
     }
   },
   stages: {
@@ -105,6 +110,17 @@ const getNewServiceForm = serviceName => {
 
 const useStyles = makeStyles(styles)
 
+const SubmitButton = ({ error, ...props }) => {
+  const classes = useStyles()
+
+  return (
+    <div className={classes.submitButtonWrapper}>
+      {error && <ErrorMessage>Failed to save</ErrorMessage>}
+      <Button {...props}>Next</Button>
+    </div>
+  )
+}
+
 const WizardPage02 = ({
   crypto,
   coinName,
@@ -125,6 +141,7 @@ const WizardPage02 = ({
   const [setUpNew, setSetUpNew] = useState(null)
   const [selectedFromDropdown, setSelectedFromDropdown] = useState(null)
   const [formContent, setFormContent] = useState(null)
+  const [error, setError] = useState(null)
 
   const classes = useStyles()
 
@@ -145,6 +162,7 @@ const WizardPage02 = ({
     setSetUpNew('')
     setFormContent(null)
     setSelectedFromDropdown(null)
+    setError(null)
   }
 
   const handleSetUpNew = event => {
@@ -152,21 +170,28 @@ const WizardPage02 = ({
     setSelectedRadio('')
     setFormContent(null)
     setSelectedFromDropdown(null)
+    setError(null)
   }
 
   const handleNext = value => event => {
-    handleModalNavigation(R.mergeDeepRight(crypto, { [pageName]: value }))(
-      currentStage + 1
-    )
-    setSelectedRadio(null)
-    setFormContent(null)
-    setSelectedFromDropdown(null)
-    setSetUpNew('')
+    const nav = handleModalNavigation(
+      R.mergeDeepRight(crypto, { [pageName]: value })
+    )(currentStage + 1)
+
+    nav
+      .then(m => {
+        setSelectedRadio(null)
+        setFormContent(null)
+        setSelectedFromDropdown(null)
+        setSetUpNew('')
+      })
+      .catch(error => setError(error))
   }
 
   const handleSelectFromDropdown = it => {
     setSelectedFromDropdown(it)
     setFormContent(getNewServiceForm(it?.code))
+    setError(null)
   }
 
   const isSubmittable = () => {
@@ -232,7 +257,7 @@ const WizardPage02 = ({
               .then(m => {
                 handleNext(selectedFromDropdown.code)()
               })
-              .catch(e => console.error(e))
+              .catch(error => setError(error))
           }>
           {props => (
             <form
@@ -251,29 +276,29 @@ const WizardPage02 = ({
                       label={field.label}
                       className={classes.formInput}
                       onFocus={() => {
-                        // setError(null)
+                        setError(null)
                       }}
                     />
                   </div>
                 ))}
               </div>
-              <Button
+              <SubmitButton
                 disabled={R.isEmpty(props.touched) || !props.isValid}
                 className={classes.submitButton}
-                type="submit">
-                Next
-              </Button>
+                type="submit"
+                error={error}
+              />
             </form>
           )}
         </Formik>
       )}
       {!formContent && (
-        <Button
+        <SubmitButton
           className={classes.submitButton}
           disabled={!isSubmittable()}
-          onClick={handleNext(selectedRadio || selectedFromDropdown?.code)}>
-          Next
-        </Button>
+          onClick={handleNext(selectedRadio || selectedFromDropdown?.code)}
+          error={error}
+        />
       )}
     </div>
   )
