@@ -134,10 +134,12 @@ const WizardPage02 = ({
   const [selectedRadio, setSelectedRadio] = useState(
     crypto[pageName] !== '' ? crypto[pageName] : null
   )
-  useEffect(
-    () => setSelectedRadio(crypto[pageName] !== '' ? crypto[pageName] : null),
-    [crypto, pageName]
-  )
+  useEffect(() => {
+    setFormContent(null)
+    setSelectedFromDropdown(null)
+    setSetUpNew('')
+    setSelectedRadio(crypto[pageName] !== '' ? crypto[pageName] : null)
+  }, [crypto, pageName])
   const [setUpNew, setSetUpNew] = useState(null)
   const [selectedFromDropdown, setSelectedFromDropdown] = useState(null)
   const [formContent, setFormContent] = useState(null)
@@ -178,14 +180,7 @@ const WizardPage02 = ({
       R.mergeDeepRight(crypto, { [pageName]: value })
     )(currentStage + 1)
 
-    nav
-      .then(m => {
-        setSelectedRadio(null)
-        setFormContent(null)
-        setSelectedFromDropdown(null)
-        setSetUpNew('')
-      })
-      .catch(error => setError(error))
+    nav.catch(error => setError(error))
   }
 
   const handleSelectFromDropdown = it => {
