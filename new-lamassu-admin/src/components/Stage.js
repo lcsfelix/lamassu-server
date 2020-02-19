@@ -19,8 +19,7 @@ import {
 const styles = {
   stages: {
     display: 'flex',
-    alignItems: 'center',
-    margin: [[12, 0]]
+    alignItems: 'center'
   },
   wrapper: {
     display: 'flex',

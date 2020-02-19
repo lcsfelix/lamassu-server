@@ -25,12 +25,12 @@ const styles = {
   modalContent: {
     display: 'flex',
     flexDirection: 'column',
-    padding: [[24, 32]],
+    padding: [[24, 32, 0]],
     '& > h1': {
-      margin: [[0, 0, 12]]
+      margin: [[0, 0, 10]]
     },
     '& > h4': {
-      margin: [[32, 0]]
+      margin: [[32, 0, 32 - 9, 0]]
     },
     '& > p': {
       margin: 0
@@ -44,13 +44,13 @@ const styles = {
   submitButton: {
     width: 67,
     padding: [[0, 0]],
-    margin: [['auto', 0, 0, 20]],
+    margin: [['auto', 0, 24, 20]],
     '&:active': {
-      margin: [['auto', 0, 0, 20]]
+      margin: [['auto', 0, 24, 20]]
     }
   },
   stages: {
-    marginBottom: 0
+    marginTop: 10
   },
   radios: {
     display: 'flex'
@@ -81,7 +81,13 @@ const styles = {
     flexDirection: 'column'
   },
   newServiceFormFields: {
+    marginTop: 20,
     marginBottom: 48
+  },
+  field: {
+    '&:not(:last-child)': {
+      marginBottom: 20
+    }
   },
   formInput: {
     '& .MuiInputBase-input': {
@@ -121,7 +127,7 @@ const SubmitButton = ({ error, ...props }) => {
   )
 }
 
-const WizardPage02 = ({
+const Wizard = ({
   crypto,
   coinName,
   pageName,
@@ -299,4 +305,4 @@ const WizardPage02 = ({
   )
 }
 
-export default WizardPage02
+export default Wizard

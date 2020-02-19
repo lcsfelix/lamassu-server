@@ -21,8 +21,8 @@ import { zircon } from 'src/styling/variables'
 import Modal from 'src/components/Modal'
 import ErrorMessage from 'src/components/ErrorMessage'
 
-import WizardPage01 from './WizardPage01'
-import WizardPage02 from './WizardPage02'
+import WizardSplash from './WizardSplash'
+import Wizard from './Wizard'
 import {
   CRYPTOCURRENCY_KEY,
   TICKER_KEY,
@@ -226,8 +226,8 @@ const WalletSettings = () => {
   const handleEnable = row => event => {
     if (!isSet(row)) {
       setModalContent(
-        <WizardPage01
-          crypto={row}
+        <WizardSplash
+          code={row[CRYPTOCURRENCY_KEY]}
           coinName={getCryptoDisplayName(row)}
           handleModalNavigation={handleModalNavigation(row)}
         />
@@ -257,7 +257,7 @@ const WalletSettings = () => {
     switch (currentPage) {
       case 1:
         setModalContent(
-          <WizardPage02
+          <Wizard
             crypto={row}
             coinName={getCryptoDisplayName(row)}
             handleModalNavigation={handleModalNavigation}
@@ -272,7 +272,7 @@ const WalletSettings = () => {
         break
       case 2:
         setModalContent(
-          <WizardPage02
+          <Wizard
             crypto={row}
             coinName={getCryptoDisplayName(row)}
             handleModalNavigation={handleModalNavigation}
@@ -286,7 +286,7 @@ const WalletSettings = () => {
         break
       case 3:
         setModalContent(
-          <WizardPage02
+          <Wizard
             crypto={row}
             coinName={getCryptoDisplayName(row)}
             handleModalNavigation={handleModalNavigation}
@@ -300,7 +300,7 @@ const WalletSettings = () => {
         break
       case 4:
         setModalContent(
-          <WizardPage02
+          <Wizard
             crypto={row}
             coinName={getCryptoDisplayName(row)}
             handleModalNavigation={handleModalNavigation}

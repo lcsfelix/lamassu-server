@@ -16,6 +16,10 @@ const localStyles = {
     display: 'flex',
     position: 'relative',
     minHeight: 400,
+    maxHeight: '90vh',
+    overflowY: 'auto',
+    borderRadius: 8,
+    outline: 0,
     '& > div': {
       width: '100%'
     }
